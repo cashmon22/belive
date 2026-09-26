@@ -1,13 +1,17 @@
 export type AssignmentCategory =
-  | "Data Collection"
-  | "Data Verification"
-  | "Image Classification"
-  | "Text Evaluation"
+  | "Product Research"
+  | "Product Data Verification"
+  | "Product Categorization"
+  | "Product Attribute Review"
   | "Search Relevance Evaluation"
-  | "Content Review"
-  | "AI Response Evaluation"
-  | "Transcription"
-  | "Survey & Research Tasks";
+  | "Product Listing Quality Review"
+  | "Product Image Review"
+  | "Product Review Analysis"
+  | "Pricing Research"
+  | "Product Availability Research"
+  | "Shopping Experience Evaluation"
+  | "Competitor Product Research"
+  | "Product Content Classification";
 
 export type AssignmentStatus = "Available" | "Limited" | "Full";
 
@@ -22,136 +26,150 @@ export interface Assignment {
 }
 
 export const assignmentCategories: AssignmentCategory[] = [
-  "Data Collection",
-  "Data Verification",
-  "Image Classification",
-  "Text Evaluation",
+  "Product Research",
+  "Product Data Verification",
+  "Product Categorization",
+  "Product Attribute Review",
   "Search Relevance Evaluation",
-  "Content Review",
-  "AI Response Evaluation",
-  "Transcription",
-  "Survey & Research Tasks",
+  "Product Listing Quality Review",
+  "Product Image Review",
+  "Product Review Analysis",
+  "Pricing Research",
+  "Product Availability Research",
+  "Shopping Experience Evaluation",
+  "Competitor Product Research",
+  "Product Content Classification",
 ];
 
 export const assignments: Assignment[] = [
   {
     id: "asg-001",
-    title: "Retail Product Data Collection",
-    category: "Data Collection",
+    title: "Product Feature Research",
+    category: "Product Research",
     description:
-      "Visit assigned retail stores and collect product information including pricing, availability, and shelf placement data.",
-    estimatedTime: "20 min",
-    reward: 8.5,
+      "Research assigned products and collect accurate information about product features, specifications, sizes, colors, compatibility, and other relevant details.",
+    estimatedTime: "45 min",
+    reward: 65,
     status: "Available",
   },
   {
     id: "asg-002",
-    title: "Business Listing Verification",
-    category: "Data Verification",
+    title: "Product Listing Verification",
+    category: "Product Data Verification",
     description:
-      "Verify the accuracy of business listings on maps by checking names, addresses, hours, and contact information.",
-    estimatedTime: "15 min",
-    reward: 6.0,
+      "Review product listing information and identify missing, inaccurate, outdated, or inconsistent product details across assigned marketplace listings.",
+    estimatedTime: "30 min",
+    reward: 35,
     status: "Available",
   },
   {
     id: "asg-003",
-    title: "E-commerce Product Image Tagging",
-    category: "Image Classification",
+    title: "Marketplace Category Assignment",
+    category: "Product Categorization",
     description:
-      "Review product images and assign appropriate category tags, attributes, and labels for improved searchability.",
-    estimatedTime: "12 min",
-    reward: 5.5,
+      "Assign products to the appropriate marketplace category and subcategory based on the provided classification guidelines and product information.",
+    estimatedTime: "25 min",
+    reward: 50,
     status: "Available",
   },
   {
     id: "asg-004",
-    title: "Product Review Sentiment Analysis",
-    category: "Text Evaluation",
+    title: "Product Attribute Validation",
+    category: "Product Attribute Review",
     description:
-      "Read customer product reviews and classify the overall sentiment as positive, negative, or neutral with reasoning.",
-    estimatedTime: "10 min",
-    reward: 4.5,
+      "Review product listings and verify attributes such as brand, material, dimensions, color, size, compatibility, and product type for accuracy and completeness.",
+    estimatedTime: "35 min",
+    reward: 50,
     status: "Available",
   },
   {
     id: "asg-005",
-    title: "Search Query Relevance Rating",
+    title: "Shopper Search Relevance Rating",
     category: "Search Relevance Evaluation",
     description:
-      "Rate the relevance of search results for given queries on a scale from 1 to 5 based on user intent and accuracy.",
-    estimatedTime: "18 min",
-    reward: 7.0,
+      "Review shopper search queries and product results, then rate how relevant each result is to the searcher's intent and expectations.",
+    estimatedTime: "40 min",
+    reward: 65,
     status: "Available",
   },
   {
     id: "asg-006",
-    title: "User-Generated Content Moderation",
-    category: "Content Review",
+    title: "Product Listing Quality Assessment",
+    category: "Product Listing Quality Review",
     description:
-      "Review user-submitted content including text posts, images, and comments for policy compliance and appropriateness.",
-    estimatedTime: "25 min",
-    reward: 9.0,
+      "Evaluate product titles, bullet points, descriptions, and listing information for completeness, clarity, and consistency with marketplace standards.",
+    estimatedTime: "50 min",
+    reward: 80,
     status: "Available",
   },
   {
     id: "asg-007",
-    title: "AI Chatbot Response Quality",
-    category: "AI Response Evaluation",
+    title: "Product Image Quality Review",
+    category: "Product Image Review",
     description:
-      "Evaluate the quality, accuracy, and helpfulness of AI-generated responses to user questions across multiple topics.",
-    estimatedTime: "15 min",
-    reward: 6.5,
+      "Review product images for quality, clarity, relevance, and whether the images accurately represent the listed product and its key features.",
+    estimatedTime: "20 min",
+    reward: 20,
     status: "Available",
   },
   {
     id: "asg-008",
-    title: "Audio Interview Transcription",
-    category: "Transcription",
+    title: "Customer Review Theme Analysis",
+    category: "Product Review Analysis",
     description:
-      "Listen to audio recordings of interviews and transcribe the spoken content to text with high accuracy and formatting.",
-    estimatedTime: "30 min",
-    reward: 12.0,
+      "Analyze existing customer reviews to identify recurring themes, customer concerns, product issues, and overall sentiment trends for assigned products.",
+    estimatedTime: "60 min",
+    reward: 100,
     status: "Available",
   },
   {
     id: "asg-009",
-    title: "Consumer Shopping Habits Survey",
-    category: "Survey & Research Tasks",
+    title: "Marketplace Pricing Verification",
+    category: "Pricing Research",
     description:
-      "Complete a structured survey about your shopping preferences, brand choices, and purchasing decision factors.",
-    estimatedTime: "8 min",
-    reward: 3.5,
+      "Research and verify product pricing information for assigned marketplace products, comparing listed prices against current market data.",
+    estimatedTime: "35 min",
+    reward: 50,
     status: "Available",
   },
   {
     id: "asg-010",
-    title: "Street View Data Annotation",
-    category: "Data Collection",
+    title: "Product Availability Check",
+    category: "Product Availability Research",
     description:
-      "Annotate and label objects such as road signs, buildings, and landmarks visible in street-level imagery for mapping.",
-    estimatedTime: "20 min",
-    reward: 8.0,
-    status: "Limited",
+      "Check assigned products for availability and record relevant availability information including stock status, variants, and regional differences.",
+    estimatedTime: "25 min",
+    reward: 35,
+    status: "Available",
   },
   {
     id: "asg-011",
-    title: "Medical Image Region Labeling",
-    category: "Image Classification",
+    title: "Shopping Experience Evaluation",
+    category: "Shopping Experience Evaluation",
     description:
-      "Identify and label specific regions of interest in medical scan images following provided annotation guidelines.",
-    estimatedTime: "22 min",
-    reward: 10.0,
+      "Complete assigned shopping scenarios and provide structured feedback about search, navigation, product information, and overall shopping usability.",
+    estimatedTime: "75 min",
+    reward: 125,
     status: "Available",
   },
   {
     id: "asg-012",
-    title: "Multi-language Text Classification",
-    category: "Text Evaluation",
+    title: "Competitor Product Comparison",
+    category: "Competitor Product Research",
     description:
-      "Classify text passages by language and topical category to improve multilingual content organization systems.",
-    estimatedTime: "14 min",
-    reward: 5.0,
-    status: "Full",
+      "Research comparable products and record differences in features, specifications, pricing, and marketplace positioning relative to assigned target products.",
+    estimatedTime: "90 min",
+    reward: 150,
+    status: "Available",
+  },
+  {
+    id: "asg-013",
+    title: "Product Content Taxonomy Classification",
+    category: "Product Content Classification",
+    description:
+      "Classify product titles, descriptions, and other marketplace content according to the provided taxonomy and classification guidelines.",
+    estimatedTime: "30 min",
+    reward: 50,
+    status: "Limited",
   },
 ];

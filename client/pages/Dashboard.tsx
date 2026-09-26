@@ -56,7 +56,7 @@ const onboardingItems = [
 
 const contributorId = "CTR-162-717";
 const contributorName = "Contributor";
-const availableAssignments = 11;
+const availableAssignments = 12;
 const paymentGatewayConfigured = false;
 
 function DashboardLogo({ dark = false }: { dark?: boolean }) {
