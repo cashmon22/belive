@@ -1,6 +1,10 @@
 -- Vendor messaging system: conversations and messages between users and the Trusted Vendor (admin).
 -- One conversation per (user_id, payment_request_id) pair — no duplicates.
 
+-- ============================================================
+-- Tables
+-- ============================================================
+
 create table if not exists public.vendor_conversations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -32,10 +36,38 @@ create table if not exists public.vendor_messages (
   created_at timestamptz not null default now()
 );
 
+-- ============================================================
+-- Indexes
+-- ============================================================
+
 create index if not exists vendor_conversations_user_id_idx on public.vendor_conversations (user_id);
 create index if not exists vendor_conversations_payment_request_id_idx on public.vendor_conversations (payment_request_id);
 create index if not exists vendor_conversations_last_message_at_idx on public.vendor_conversations (last_message_at desc);
 create index if not exists vendor_messages_conversation_id_idx on public.vendor_messages (conversation_id, created_at asc);
+
+-- ============================================================
+-- Auto-update updated_at trigger
+-- ============================================================
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists vendor_conversations_updated_at on public.vendor_conversations;
+create trigger vendor_conversations_updated_at
+  before update on public.vendor_conversations
+  for each row
+  execute function public.set_updated_at();
+
+-- ============================================================
+-- Row Level Security
+-- ============================================================
 
 alter table public.vendor_conversations enable row level security;
 alter table public.vendor_messages enable row level security;
@@ -90,5 +122,16 @@ create policy "Users can update read status on own messages"
       and (c.user_id = auth.uid() or (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
     )
   );
+
+-- ============================================================
+-- Realtime publication (required by AdminMessages + VendorChat)
+-- ============================================================
+
+alter publication supabase_realtime add table public.vendor_conversations;
+alter publication supabase_realtime add table public.vendor_messages;
+
+-- ============================================================
+-- Reload PostgREST schema cache
+-- ============================================================
 
 notify pgrst, 'reload schema';
