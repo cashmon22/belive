@@ -1,4 +1,4 @@
-export type PaymentRequestStatus = "Pending Review" | "Approved" | "Rejected" | "Completed";
+export type PaymentRequestStatus = "Under Review" | "Approved" | "Rejected" | "Completed";
 
 export type PaymentRequest = {
   id: string;

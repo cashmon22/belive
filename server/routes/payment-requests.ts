@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { Request, RequestHandler } from "express";
 import type { User } from "@supabase/supabase-js";
-import { createAuthenticatedSupabaseClient, supabase } from "../lib/supabase";
+import { createAuthenticatedSupabaseClient, createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
 import { vendorDevices, type VendorDevice } from "../../shared/vendor-data";
 import type {
   CreatePaymentRequestInput,
@@ -9,7 +9,7 @@ import type {
 } from "../../shared/payment-requests";
 
 const allowedStatuses: PaymentRequestStatus[] = [
-  "Pending Review",
+  "Under Review",
   "Approved",
   "Rejected",
   "Completed",
@@ -45,6 +45,12 @@ function isAdmin(user: User) {
 
 function requireText(value: unknown) {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+// PostgREST may return PGRST204 (schema cache miss) or PostgreSQL may return
+// 42703 (undefined_column) when rejection_reason/reviewed_at don't exist yet.
+function isMissingColumnError(error: { code?: string } | null): boolean {
+  return !!error && (error.code === "42703" || error.code === "PGRST204");
 }
 
 function logPaymentRequestFailure(stage: string, error: unknown) {
@@ -163,12 +169,12 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
       device_amount: device.price,
       currency: device.currency,
       vendor: "Trusted Vendor",
-      status: "Pending Review",
+      status: "Under Review",
     })
     .select(fullSelect)
     .single();
 
-  if (error && error.code === "42703") {
+  if (isMissingColumnError(error)) {
     // rejection_reason/reviewed_at columns don't exist yet — retry without them
     const { data: fallback, error: fallbackError } = await authenticatedSupabase
       .from("payment_requests")
@@ -189,7 +195,7 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
         device_amount: device.price,
         currency: device.currency,
         vendor: "Trusted Vendor",
-        status: "Pending Review",
+        status: "Under Review",
       })
       .select(baseSelect)
       .single();
@@ -227,7 +233,7 @@ export const listPaymentRequests: RequestHandler = async (req, res) => {
   let data: any[] | null;
   let result = await query;
 
-  if (result.error && result.error.code === "42703") {
+  if (isMissingColumnError(result.error)) {
     // rejection_reason/reviewed_at columns don't exist yet — retry without them
     let fallbackQuery = authenticatedSupabase
       .from("payment_requests")
@@ -253,7 +259,7 @@ export const listPaymentRequests: RequestHandler = async (req, res) => {
 export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
   const context = await getAuthenticatedUser(req, res);
   if (!context) return;
-  const { user, supabase: authenticatedSupabase } = context;
+  const { user } = context;
   if (!isAdmin(user)) {
     res.status(403).json({ error: "Administrator access required" });
     return;
@@ -273,16 +279,20 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
     updateData.rejection_reason = null;
   }
 
-  let { data, error } = await authenticatedSupabase
+  // Use the service role client so the update bypasses RLS.
+  // Admin authorization is already verified above via isAdmin(user).
+  const serviceSupabase = createServiceRoleSupabaseClient();
+
+  let { data, error } = await serviceSupabase
     .from("payment_requests")
     .update(updateData)
     .eq("id", req.params.id)
     .select("id, status")
     .single();
 
-  if (error && error.code === "42703") {
+  if (isMissingColumnError(error)) {
     // rejection_reason/reviewed_at columns don't exist — retry with just status
-    const fallback = await authenticatedSupabase
+    const fallback = await serviceSupabase
       .from("payment_requests")
       .update({ status })
       .eq("id", req.params.id)
@@ -293,6 +303,7 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
   }
 
   if (error) {
+    logPaymentRequestFailure("status update", error);
     res.status(500).json({ error: "Unable to update payment request status." });
     return;
   }
@@ -303,13 +314,17 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
 export const deletePaymentRequest: RequestHandler = async (req, res) => {
   const context = await getAuthenticatedUser(req, res);
   if (!context) return;
-  const { user, supabase: authenticatedSupabase } = context;
+  const { user } = context;
   if (!isAdmin(user)) {
     res.status(403).json({ error: "Administrator access required" });
     return;
   }
 
-  const { data, error } = await authenticatedSupabase
+  // Use the service role client so the delete bypasses RLS.
+  // Admin authorization is already verified above via isAdmin(user).
+  const serviceSupabase = createServiceRoleSupabaseClient();
+
+  const { data, error } = await serviceSupabase
     .from("payment_requests")
     .delete()
     .eq("id", req.params.id)
@@ -317,7 +332,7 @@ export const deletePaymentRequest: RequestHandler = async (req, res) => {
     .single();
 
   if (error) {
-    console.error("Unable to delete payment request", error);
+    logPaymentRequestFailure("delete", error);
     res.status(500).json({ error: "Unable to delete payment request." });
     return;
   }

@@ -6,7 +6,7 @@ import { listPaymentRequests, updatePaymentRequestStatus } from "@/lib/payment-r
 import { AuthenticatedShell } from "@/pages/PaymentRequest";
 import type { PaymentRequest, PaymentRequestStatus } from "@shared/payment-requests";
 
-const statuses: PaymentRequestStatus[] = ["Pending Review", "Approved", "Rejected", "Completed"];
+const statuses: PaymentRequestStatus[] = ["Under Review", "Approved", "Rejected", "Completed"];
 
 function formatAmount(request: PaymentRequest) {
   if (request.deviceAmount === null) return "Price available on request";

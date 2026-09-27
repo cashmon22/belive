@@ -372,7 +372,7 @@ export default function Dashboard() {
                 </div>
                 <Link to="/trusted-vendor" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-navy px-4 py-3 text-xs font-extrabold text-white transition hover:bg-[#1d3042]"><ArrowRight size={15} /> Submit New Request</Link>
               </div>
-            ) : deviceRequest?.status === "Pending Review" ? (
+            ) : deviceRequest?.status === "Under Review" ? (
               <div className="flex flex-col gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" role="status">
                 <div className="flex items-start gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white"><Clock3 size={19} /></span>
@@ -438,8 +438,8 @@ export default function Dashboard() {
                     </div>
                   </section>
 
-                  <section className={`rounded-xl border p-5 shadow-card sm:p-6 ${deviceRequest?.status === "Approved" ? "border-emerald-200 bg-emerald/[0.03]" : deviceRequest?.status === "Rejected" ? "border-red-200 bg-red/[0.03]" : deviceRequest?.status === "Pending Review" ? "border-amber-200 bg-amber/[0.03]" : "border-orange/30 bg-orange/[0.045]"}`}>
-                    <SectionHeading icon={MonitorCheck} eyebrow="Required setup" title="Device Authorization" action={deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status === "Rejected" ? "Rejected" : deviceRequest?.status === "Pending Review" ? "Under Review" : "Action needed"} />
+                  <section className={`rounded-xl border p-5 shadow-card sm:p-6 ${deviceRequest?.status === "Approved" ? "border-emerald-200 bg-emerald/[0.03]" : deviceRequest?.status === "Rejected" ? "border-red-200 bg-red/[0.03]" : deviceRequest?.status === "Under Review" ? "border-amber-200 bg-amber/[0.03]" : "border-orange/30 bg-orange/[0.045]"}`}>
+                    <SectionHeading icon={MonitorCheck} eyebrow="Required setup" title="Device Authorization" action={deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status === "Rejected" ? "Rejected" : deviceRequest?.status === "Under Review" ? "Under Review" : "Action needed"} />
                     {deviceRequest?.status === "Approved" ? (
                       <>
                         <div className="mt-5 flex items-start gap-3">
@@ -471,7 +471,7 @@ export default function Dashboard() {
                           Submit New Request <ArrowRight size={15} />
                         </Link>
                       </>
-                    ) : deviceRequest?.status === "Pending Review" ? (
+                    ) : deviceRequest?.status === "Under Review" ? (
                       <>
                         <div className="mt-5 flex items-start gap-3">
                           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white"><Clock3 size={21} /></span>

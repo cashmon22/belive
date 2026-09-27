@@ -10,11 +10,12 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
+  Trash2,
   X,
   XCircle,
 } from "lucide-react";
 import type { PaymentRequest, PaymentRequestStatus } from "@shared/payment-requests";
-import { listPaymentRequests, updatePaymentRequestStatus } from "@/lib/payment-requests";
+import { deletePaymentRequest, listPaymentRequests, updatePaymentRequestStatus } from "@/lib/payment-requests";
 
 const statusFilters = ["All", "Under Review", "Approved", "Rejected"] as const;
 type StatusFilter = (typeof statusFilters)[number];
@@ -69,7 +70,7 @@ export default function AdminDeviceRequests() {
   const [error, setError] = useState("");
   const [rejectMode, setRejectMode] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
-  const [confirmAction, setConfirmAction] = useState<{ type: "approve" | "reject"; request: PaymentRequest } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: "approve" | "reject" | "delete"; request: PaymentRequest } | null>(null);
 
   const loadRequests = async () => {
     setIsLoading(true);
@@ -133,6 +134,21 @@ export default function AdminDeviceRequests() {
       setConfirmAction(null);
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Unable to reject request.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = async (request: PaymentRequest) => {
+    setIsUpdating(true);
+    setError("");
+    try {
+      await deletePaymentRequest(request.id);
+      setRequests((current) => current.filter((r) => r.id !== request.id));
+      setSelectedRequest(null);
+      setConfirmAction(null);
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "Unable to delete request.");
     } finally {
       setIsUpdating(false);
     }
@@ -249,10 +265,16 @@ export default function AdminDeviceRequests() {
                     <td className="whitespace-nowrap px-6 py-4 text-xs text-slate-500">{formatDate(request.createdAt)}</td>
                     <td className="px-6 py-4"><StatusBadge status={adminStatus(request.status)} /></td>
                     <td className="px-6 py-4 text-right">
-                      <button type="button" onClick={() => { setSelectedRequest(request); setRejectMode(false); setRejectReason(""); }}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-navy transition hover:border-orange/40 hover:text-orange">
-                        <Eye size={14} /> Open
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        <button type="button" onClick={() => { setSelectedRequest(request); setRejectMode(false); setRejectReason(""); }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-navy transition hover:border-orange/40 hover:text-orange">
+                          <Eye size={14} /> Open
+                        </button>
+                        <button type="button" onClick={() => setConfirmAction({ type: "delete", request })}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50">
+                          <Trash2 size={14} /> Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -373,6 +395,14 @@ export default function AdminDeviceRequests() {
                 </p>
               </div>
             )}
+
+            {/* Delete action — always available in detail view */}
+            {!rejectMode && (
+              <button type="button" disabled={isUpdating} onClick={() => setConfirmAction({ type: "delete", request: selectedRequest })}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
+                <Trash2 size={14} /> Delete Request
+              </button>
+            )}
           </section>
         </div>
       )}
@@ -388,6 +418,20 @@ export default function AdminDeviceRequests() {
           isUpdating={isUpdating}
           onCancel={() => setConfirmAction(null)}
           onConfirm={() => void handleApprove(confirmAction.request)}
+        />
+      )}
+
+      {/* Delete confirmation */}
+      {confirmAction?.type === "delete" && (
+        <ConfirmDialog
+          title="Delete this device request?"
+          message={`Permanently delete the request from ${confirmAction.request.fullLegalName} for ${confirmAction.request.deviceName} (Ref: ${referenceNumber(confirmAction.request.id)})? This action cannot be undone.`}
+          confirmLabel="Delete Request"
+          confirmClass="bg-red-600 hover:bg-red-700"
+          icon={Trash2}
+          isUpdating={isUpdating}
+          onCancel={() => setConfirmAction(null)}
+          onConfirm={() => void handleDelete(confirmAction.request)}
         />
       )}
     </section>
