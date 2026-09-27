@@ -369,12 +369,22 @@ export const getOrCreateSupportConversation: RequestHandler = async (req, res) =
   const { user, supabase: authSupabase } = context;
 
   // Check for existing support conversation
-  const { data: existing } = await authSupabase
+  const { data: existing, error: lookupError } = await authSupabase
     .from("vendor_conversations")
     .select(conversationSelect)
     .eq("user_id", user.id)
     .eq("conversation_type", "support")
     .maybeSingle();
+
+  if (lookupError) {
+    console.error("[getOrCreateSupportConversation] SELECT failed", {
+      userId: user.id,
+      code: lookupError.code,
+      message: lookupError.message,
+      details: lookupError.details,
+      hint: lookupError.hint,
+    });
+  }
 
   if (existing) {
     res.json(mapConversation(existing));
@@ -384,7 +394,8 @@ export const getOrCreateSupportConversation: RequestHandler = async (req, res) =
   const fullName = (user.user_metadata?.full_name as string) || user.email?.split("@")[0] || "User";
   const email = user.email ?? "";
 
-  // Create new support conversation
+  // Create new support conversation — only user_id, conversation_type, user_name, user_email
+  // are set; all device fields are intentionally left NULL (support is not tied to a device)
   const { data, error } = await authSupabase
     .from("vendor_conversations")
     .insert({
@@ -409,7 +420,13 @@ export const getOrCreateSupportConversation: RequestHandler = async (req, res) =
         return;
       }
     }
-    console.error("Failed to create support conversation", { message: error.message, code: error.code });
+    console.error("[getOrCreateSupportConversation] INSERT failed", {
+      userId: user.id,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
     res.status(500).json({ error: "Unable to create support conversation." });
     return;
   }
@@ -437,12 +454,23 @@ export const adminCreateSupportConversation: RequestHandler = async (req, res) =
   const serviceSupabase = createServiceRoleSupabaseClient();
 
   // Check for existing support conversation
-  const { data: existing } = await serviceSupabase
+  const { data: existing, error: lookupError } = await serviceSupabase
     .from("vendor_conversations")
     .select(conversationSelect)
     .eq("user_id", userId)
     .eq("conversation_type", "support")
     .maybeSingle();
+
+  if (lookupError) {
+    console.error("[adminCreateSupportConversation] SELECT failed", {
+      adminId: user.id,
+      targetUserId: userId,
+      code: lookupError.code,
+      message: lookupError.message,
+      details: lookupError.details,
+      hint: lookupError.hint,
+    });
+  }
 
   if (existing) {
     res.json(mapConversation(existing));
@@ -452,6 +480,11 @@ export const adminCreateSupportConversation: RequestHandler = async (req, res) =
   // Fetch user info
   const { data: userInfo, error: userError } = await serviceSupabase.auth.admin.getUserById(userId);
   if (userError || !userInfo.user) {
+    console.error("[adminCreateSupportConversation] getUserById failed", {
+      adminId: user.id,
+      targetUserId: userId,
+      message: userError?.message,
+    });
     res.status(404).json({ error: "User not found." });
     return;
   }
@@ -484,7 +517,14 @@ export const adminCreateSupportConversation: RequestHandler = async (req, res) =
         return;
       }
     }
-    console.error("Failed to create support conversation", { message: error.message, code: error.code });
+    console.error("[adminCreateSupportConversation] INSERT failed", {
+      adminId: user.id,
+      targetUserId: userId,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
     res.status(500).json({ error: "Unable to create support conversation." });
     return;
   }

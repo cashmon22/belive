@@ -48,6 +48,17 @@ alter table public.vendor_conversations add column if not exists device_name tex
 alter table public.vendor_conversations add column if not exists device_model text;
 alter table public.vendor_conversations add column if not exists reference_number text;
 alter table public.vendor_conversations add column if not exists request_status text;
+
+-- Ensure device/payment fields are nullable (support conversations don't set them).
+-- These DROP NOT NULL calls are idempotent — they succeed silently if the column
+-- is already nullable.  This fixes the root cause of support-conversation creation
+-- failing with "null value in column payment_request_id violates not-null constraint".
+alter table public.vendor_conversations alter column payment_request_id drop not null;
+alter table public.vendor_conversations alter column device_id drop not null;
+alter table public.vendor_conversations alter column device_name drop not null;
+alter table public.vendor_conversations alter column device_model drop not null;
+alter table public.vendor_conversations alter column reference_number drop not null;
+alter table public.vendor_conversations alter column request_status drop not null;
 alter table public.vendor_conversations add column if not exists status text not null default 'active';
 alter table public.vendor_conversations add column if not exists last_message text;
 alter table public.vendor_conversations add column if not exists last_message_at timestamptz;
