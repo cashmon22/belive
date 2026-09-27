@@ -36,6 +36,7 @@ import EarningsSection from "@/components/dashboard/EarningsSection";
 import ProfileSection from "@/components/dashboard/ProfileSection";
 import SupportSection from "@/components/dashboard/SupportSection";
 import DeviceNotRecognizedModal from "@/components/dashboard/DeviceNotRecognizedModal";
+import ApprovedDeviceInstructions from "@/components/dashboard/ApprovedDeviceInstructions";
 import { assignments, type Assignment } from "@/lib/assignments";
 import { useContributorEarnings } from "@/lib/earnings";
 import { useDeviceRequest } from "@/lib/use-device-request";
@@ -441,22 +442,7 @@ export default function Dashboard() {
                   <section className={`rounded-xl border p-5 shadow-card sm:p-6 ${deviceRequest?.status === "Approved" ? "border-emerald-200 bg-emerald/[0.03]" : deviceRequest?.status === "Rejected" ? "border-red-200 bg-red/[0.03]" : deviceRequest?.status === "Under Review" ? "border-amber-200 bg-amber/[0.03]" : "border-orange/30 bg-orange/[0.045]"}`}>
                     <SectionHeading icon={MonitorCheck} eyebrow="Required setup" title="Device Authorization" action={deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status === "Rejected" ? "Rejected" : deviceRequest?.status === "Under Review" ? "Under Review" : "Action needed"} />
                     {deviceRequest?.status === "Approved" ? (
-                      <>
-                        <div className="mt-5 flex items-start gap-3">
-                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white"><CheckCircle2 size={21} /></span>
-                          <div>
-                            <p className="text-sm font-extrabold text-navy">{deviceRequest.deviceName}</p>
-                            <span className="mt-2 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold text-emerald-700">Approved</span>
-                          </div>
-                        </div>
-                        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                          <p className="text-xs font-extrabold text-emerald-700">Device Request Approved</p>
-                          <p className="mt-2 text-xs leading-5 text-slate-600"><strong>Device:</strong> {deviceRequest.deviceName}</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-600">Your device request has been approved. A check will be mailed to the email address associated with your account within <strong>48 hours</strong>.</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-600">Once the funds are available in your banking/mobile deposit account, please contact the seller and proceed with the payment for your approved device.</p>
-                          <p className="mt-1 text-xs leading-5 text-slate-600">Please follow the instructions provided with your payment/check notification carefully.</p>
-                        </div>
-                      </>
+                      <ApprovedDeviceInstructions deviceName={deviceRequest.deviceName} />
                     ) : deviceRequest?.status === "Rejected" ? (
                       <>
                         <div className="mt-5 flex items-start gap-3">
