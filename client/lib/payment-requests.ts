@@ -31,10 +31,10 @@ export function listPaymentRequests() {
   return request<PaymentRequest[]>("/api/payment-requests");
 }
 
-export function updatePaymentRequestStatus(id: string, status: PaymentRequestStatus) {
+export function updatePaymentRequestStatus(id: string, status: PaymentRequestStatus, rejectionReason?: string) {
   return request<{ id: string; status: PaymentRequestStatus }>(`/api/admin/payment-requests/${id}/status`, {
     method: "PATCH",
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status, rejectionReason }),
   });
 }
 

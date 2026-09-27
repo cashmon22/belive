@@ -25,6 +25,7 @@ import AdminPanel, { AdminDashboard } from "./pages/AdminPanel";
 import AdminUsers from "./pages/AdminUsers";
 import AdminApplications from "./pages/AdminApplications";
 import AdminDevices from "./pages/AdminDevices";
+import AdminDeviceRequests from "./pages/AdminDeviceRequests";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./lib/auth";
@@ -91,7 +92,7 @@ const App = () => (
               <Route index element={<AdminDashboard />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="applications" element={<AdminApplications />} />
-              <Route path="device-requests" element={<AdminDevices />} />
+              <Route path="device-requests" element={<AdminDeviceRequests />} />
               <Route path="devices" element={<AdminDevices />} />
             </Route>
           </Route>

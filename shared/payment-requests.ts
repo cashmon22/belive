@@ -19,6 +19,8 @@ export type PaymentRequest = {
   vendor: string;
   status: PaymentRequestStatus;
   createdAt: string;
+  rejectionReason?: string | null;
+  reviewedAt?: string | null;
 };
 
 export type CreatePaymentRequestInput = {

@@ -58,6 +58,35 @@ function logPaymentRequestFailure(stage: string, error: unknown) {
   });
 }
 
+const baseSelect = "id, user_id, full_legal_name, email, phone, delivery_address, city, state_province, postal_code, country, device_id, device_name, device_model, device_amount, currency, vendor, status, created_at";
+const fullSelect = `${baseSelect}, rejection_reason, reviewed_at`;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRequest(row: any) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    fullLegalName: row.full_legal_name,
+    email: row.email,
+    phone: row.phone,
+    deliveryAddress: row.delivery_address,
+    city: row.city,
+    stateProvince: row.state_province,
+    postalCode: row.postal_code,
+    country: row.country,
+    deviceId: row.device_id,
+    deviceName: row.device_name,
+    deviceModel: row.device_model,
+    deviceAmount: row.device_amount,
+    currency: row.currency,
+    vendor: row.vendor,
+    status: row.status,
+    createdAt: row.created_at,
+    rejectionReason: row.rejection_reason ?? null,
+    reviewedAt: row.reviewed_at ?? null,
+  };
+}
+
 export const createPaymentRequest: RequestHandler = async (req, res) => {
   const context = await getAuthenticatedUser(req, res);
   if (!context) return;
@@ -136,10 +165,43 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
       vendor: "Trusted Vendor",
       status: "Pending Review",
     })
-    .select(
-      "id, user_id, full_legal_name, email, phone, delivery_address, city, state_province, postal_code, country, device_id, device_name, device_model, device_amount, currency, vendor, status, created_at",
-    )
+    .select(fullSelect)
     .single();
+
+  if (error && error.code === "42703") {
+    // rejection_reason/reviewed_at columns don't exist yet — retry without them
+    const { data: fallback, error: fallbackError } = await authenticatedSupabase
+      .from("payment_requests")
+      .insert({
+        id: crypto.randomUUID(),
+        user_id: user.id,
+        full_legal_name: body.fullLegalName.trim(),
+        email: user.email ?? "",
+        phone: body.phone.trim(),
+        delivery_address: body.deliveryAddress.trim(),
+        city: body.city.trim(),
+        state_province: body.stateProvince.trim(),
+        postal_code: body.postalCode.trim(),
+        country: body.country.trim(),
+        device_id: device.id,
+        device_name: device.name,
+        device_model: device.model,
+        device_amount: device.price,
+        currency: device.currency,
+        vendor: "Trusted Vendor",
+        status: "Pending Review",
+      })
+      .select(baseSelect)
+      .single();
+
+    if (fallbackError) {
+      logPaymentRequestFailure("payment request insert", fallbackError);
+      res.status(500).json({ error: "Unable to save the payment request." });
+      return;
+    }
+    res.status(201).json(mapRequest(fallback));
+    return;
+  }
 
   if (error) {
     logPaymentRequestFailure("payment request insert", error);
@@ -147,26 +209,7 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
     return;
   }
 
-  res.status(201).json({
-    id: data.id,
-    userId: data.user_id,
-    fullLegalName: data.full_legal_name,
-    email: data.email,
-    phone: data.phone,
-    deliveryAddress: data.delivery_address,
-    city: data.city,
-    stateProvince: data.state_province,
-    postalCode: data.postal_code,
-    country: data.country,
-    deviceId: data.device_id,
-    deviceName: data.device_name,
-    deviceModel: data.device_model,
-    deviceAmount: data.device_amount,
-    currency: data.currency,
-    vendor: data.vendor,
-    status: data.status,
-    createdAt: data.created_at,
-  });
+  res.status(201).json(mapRequest(data));
 };
 
 export const listPaymentRequests: RequestHandler = async (req, res) => {
@@ -174,43 +217,37 @@ export const listPaymentRequests: RequestHandler = async (req, res) => {
   if (!context) return;
   const { user, supabase: authenticatedSupabase } = context;
 
-  const query = authenticatedSupabase
+  let query = authenticatedSupabase
     .from("payment_requests")
-    .select(
-      "id, user_id, full_legal_name, email, phone, delivery_address, city, state_province, postal_code, country, device_id, device_name, device_model, device_amount, currency, vendor, status, created_at",
-    )
+    .select(fullSelect)
     .order("created_at", { ascending: false });
-  const { data, error } = isAdmin(user)
-    ? await query
-    : await query.eq("user_id", user.id);
+  if (!isAdmin(user)) query = query.eq("user_id", user.id);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let data: any[] | null;
+  let result = await query;
+
+  if (result.error && result.error.code === "42703") {
+    // rejection_reason/reviewed_at columns don't exist yet — retry without them
+    let fallbackQuery = authenticatedSupabase
+      .from("payment_requests")
+      .select(baseSelect)
+      .order("created_at", { ascending: false });
+    if (!isAdmin(user)) fallbackQuery = fallbackQuery.eq("user_id", user.id);
+    const fallback = await fallbackQuery;
+    data = fallback.data;
+    result = { data: fallback.data, error: fallback.error } as typeof result;
+  } else {
+    data = result.data;
+  }
+
+  const error = result.error;
   if (error) {
     res.status(500).json({ error: "Unable to load payment requests." });
     return;
   }
 
-  res.json(
-    data.map((request) => ({
-      id: request.id,
-      userId: request.user_id,
-      fullLegalName: request.full_legal_name,
-      email: request.email,
-      phone: request.phone,
-      deliveryAddress: request.delivery_address,
-      city: request.city,
-      stateProvince: request.state_province,
-      postalCode: request.postal_code,
-      country: request.country,
-      deviceId: request.device_id,
-      deviceName: request.device_name,
-      deviceModel: request.device_model,
-      deviceAmount: request.device_amount,
-      currency: request.currency,
-      vendor: request.vendor,
-      status: request.status,
-      createdAt: request.created_at,
-    })),
-  );
+  res.json(data.map(mapRequest));
 };
 
 export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
@@ -228,12 +265,32 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
     return;
   }
 
-  const { data, error } = await authenticatedSupabase
+  const rejectionReason = typeof req.body?.rejectionReason === "string" ? req.body.rejectionReason.trim() : null;
+  const updateData: Record<string, unknown> = { status, reviewed_at: new Date().toISOString() };
+  if (status === "Rejected" && rejectionReason) {
+    updateData.rejection_reason = rejectionReason;
+  } else if (status !== "Rejected") {
+    updateData.rejection_reason = null;
+  }
+
+  let { data, error } = await authenticatedSupabase
     .from("payment_requests")
-    .update({ status })
+    .update(updateData)
     .eq("id", req.params.id)
     .select("id, status")
     .single();
+
+  if (error && error.code === "42703") {
+    // rejection_reason/reviewed_at columns don't exist — retry with just status
+    const fallback = await authenticatedSupabase
+      .from("payment_requests")
+      .update({ status })
+      .eq("id", req.params.id)
+      .select("id, status")
+      .single();
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     res.status(500).json({ error: "Unable to update payment request status." });
