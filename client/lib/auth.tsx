@@ -17,6 +17,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let isMounted = true;
+    let subscription: { unsubscribe: () => void } | null = null;
 
     const clearFailedSession = async () => {
       try {
@@ -27,26 +28,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     };
 
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
+    try {
+      supabase.auth.getSession().then(({ data: { session }, error }) => {
+        if (error) {
+          void clearFailedSession();
+          return;
+        }
+        if (!isMounted) return;
+        setSession(session);
+        setIsLoading(false);
+      }).catch(() => {
         void clearFailedSession();
-        return;
-      }
-      if (!isMounted) return;
-      setSession(session);
-      setIsLoading(false);
-    }).catch(() => {
-      void clearFailedSession();
-    });
+      });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session);
+        setIsLoading(false);
+      });
+      subscription = data.subscription;
+    } catch {
+      // Supabase not configured — load in logged-out state
+      setSession(null);
       setIsLoading(false);
-    });
+    }
 
     return () => {
       isMounted = false;
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, []);
 

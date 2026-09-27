@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
 const supabasePublishableKey =
@@ -15,11 +15,25 @@ const clientOptions = {
   },
 };
 
-export const supabase = createClient(
-  supabaseUrl,
-  supabasePublishableKey,
-  clientOptions,
-);
+let _client: SupabaseClient | undefined;
+
+function getClient(): SupabaseClient {
+  if (!_client) {
+    _client = createClient(supabaseUrl, supabasePublishableKey, clientOptions);
+  }
+  return _client;
+}
+
+// Lazy proxy so the client is only created on first use, not at module load.
+// This lets Vite load its config (which imports the server) without crashing
+// when Supabase env vars are absent or invalid.
+export const supabase = new Proxy({} as SupabaseClient, {
+  get(_target, prop, receiver) {
+    const client = getClient();
+    const value = Reflect.get(client, prop, receiver);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});
 
 export function createAuthenticatedSupabaseClient(accessToken: string) {
   return createClient(supabaseUrl, supabasePublishableKey, {
