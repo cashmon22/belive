@@ -9,27 +9,37 @@ export async function submitForm(formType: string, formData: Record<string, unkn
   submittingFormTypes.add(formType);
   try {
     const submittedAt = new Date().toISOString();
-    const response = await fetch(FORMSPREE_ENDPOINT, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ ...formData, formType, submittedAt }),
-    });
-
-    if (!response.ok) throw new Error("Form submission failed");
 
     if (formType === "application") {
+      // Supabase is the primary database — insert must succeed.
+      const applicationId = crypto.randomUUID();
+      const mirrorResponse = await fetch("/api/applications/mirror", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...formData, applicationId, submittedAt }),
+      });
+      if (!mirrorResponse.ok) throw new Error("Database submission failed");
+
+      // Formspree is a secondary notification — best effort, never blocks success.
       try {
-        await fetch("/api/applications/mirror", {
+        await fetch(FORMSPREE_ENDPOINT, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...formData, applicationId: crypto.randomUUID(), submittedAt }),
+          headers: { Accept: "application/json", "Content-Type": "application/json" },
+          body: JSON.stringify({ ...formData, formType, submittedAt }),
         });
       } catch {
-        // Keep the existing Formspree submission successful if the internal copy is temporarily unavailable.
+        // Formspree is not the database source — ignore failures.
       }
+    } else {
+      const response = await fetch(FORMSPREE_ENDPOINT, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ...formData, formType, submittedAt }),
+      });
+      if (!response.ok) throw new Error("Form submission failed");
     }
   } catch {
     throw new Error(FORM_SUBMISSION_ERROR);

@@ -112,10 +112,11 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
 
   const serviceSupabase = serviceClient(res);
   if (!serviceSupabase) return;
-  const { error } = await serviceSupabase.from("applications").upsert({
+  const { error } = await serviceSupabase.from("applications").insert({
     submission_id: applicationId,
     created_at: submittedAt,
     status: "Under Review",
+    verification_status: "Not Verified",
     first_name: values.firstName ?? "",
     last_name: values.lastName ?? "",
     email: values.email ?? "",
@@ -131,12 +132,14 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
     follows_instructions: eligibility.includes(eligibilityLabels[2]),
     agrees_policies: eligibility.includes(eligibilityLabels[3]),
     understands_review: eligibility.includes(eligibilityLabels[4]),
-  }, { onConflict: "submission_id", ignoreDuplicates: true });
+  });
 
   if (error) {
-    res.status(500).json({ error: "Unable to save the application copy." });
+    console.error("[applications] Insert failed for submission_id=%s:", applicationId, error.message, error.code, error.details);
+    res.status(500).json({ error: "Unable to save the application." });
     return;
   }
+  console.log("[applications] Inserted application submission_id=%s email=%s", applicationId, values.email ?? "");
   res.status(201).json({ id: applicationId });
 };
 
