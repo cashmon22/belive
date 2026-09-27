@@ -14,6 +14,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   MonitorCheck,
   Search,
   Settings,
@@ -26,6 +27,7 @@ import { vendorDevices, type DeviceCategory, type VendorDevice } from "@/vendor-
 import { supabase } from "@/lib/supabase";
 import { listPaymentRequests } from "@/lib/payment-requests";
 import type { PaymentRequest } from "@shared/payment-requests";
+import VendorChat from "@/components/dashboard/VendorChat";
 
 type AvailableDeviceRecord = {
   id: string;
@@ -332,10 +334,12 @@ function DeviceCard({
   device,
   existingRequest,
   onOpen,
+  onMessageVendor,
 }: {
   device: VendorDevice;
   existingRequest?: PaymentRequest;
   onOpen: () => void;
+  onMessageVendor: (req: PaymentRequest) => void;
 }) {
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card transition duration-300 hover:-translate-y-1 hover:border-orange/40 hover:shadow-elevated">
@@ -426,11 +430,21 @@ function DeviceCard({
               {existingRequest.status === "Approved" ? <Check size={14} /> : <Clock3 size={14} />}
               {existingRequest.status}
             </div>
+            {existingRequest.status === "Approved" && (
+              <button
+                type="button"
+                onClick={() => onMessageVendor(existingRequest)}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-3 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:-translate-y-0.5 hover:bg-orange-light"
+              >
+                <MessageSquare size={14} />
+                Message Vendor
+              </button>
+            )}
             <a
               href={contactSellerUrl(device)}
               target="_blank"
               rel="noreferrer"
-              className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-3 text-xs font-extrabold transition ${existingRequest.status === "Approved" ? "bg-orange text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] hover:-translate-y-0.5 hover:bg-orange-light" : "border border-slate-200 text-navy hover:border-orange hover:text-orange"}`}
+              className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-3 text-xs font-extrabold transition ${existingRequest.status === "Approved" ? "border border-slate-200 text-navy hover:border-orange hover:text-orange" : "bg-orange text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] hover:-translate-y-0.5 hover:bg-orange-light"}`}
             >
               Contact Seller
             </a>
@@ -466,10 +480,12 @@ function DeviceDetailsModal({
   device,
   existingRequest,
   onClose,
+  onMessageVendor,
 }: {
   device: VendorDevice;
   existingRequest?: PaymentRequest;
   onClose: () => void;
+  onMessageVendor: (req: PaymentRequest) => void;
 }) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -601,11 +617,21 @@ function DeviceDetailsModal({
                   {existingRequest.status === "Approved" ? <Check size={14} /> : <Clock3 size={14} />}
                   {existingRequest.status}
                 </div>
+                {existingRequest.status === "Approved" && (
+                  <button
+                    type="button"
+                    onClick={() => onMessageVendor(existingRequest)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-4 py-3.5 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:bg-orange-light"
+                  >
+                    <MessageSquare size={15} />
+                    Message Vendor
+                  </button>
+                )}
                 <a
                   href={contactSellerUrl(device)}
                   target="_blank"
                   rel="noreferrer"
-                  className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-3.5 text-xs font-extrabold transition ${existingRequest.status === "Approved" ? "bg-orange text-navy hover:bg-orange-light" : "border border-slate-200 text-navy hover:border-orange hover:text-orange"}`}
+                  className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-3.5 text-xs font-extrabold transition ${existingRequest.status === "Approved" ? "border border-slate-200 text-navy hover:border-orange hover:text-orange" : "bg-orange text-navy hover:bg-orange-light"}`}
                 >
                   Contact Seller
                 </a>
@@ -665,6 +691,7 @@ export default function TrustedVendor() {
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [chatRequest, setChatRequest] = useState<{ request: PaymentRequest; deviceName: string } | null>(null);
 
   const displayName =
     session?.user.user_metadata?.full_name ||
@@ -938,6 +965,7 @@ export default function TrustedVendor() {
                       device={device}
                       existingRequest={requestByDeviceId.get(device.id)}
                       onOpen={() => setSelectedDevice(device)}
+                      onMessageVendor={(req) => setChatRequest({ request: req, deviceName: device.name })}
                     />
                   ))}
                 </div>
@@ -1038,6 +1066,18 @@ export default function TrustedVendor() {
           device={selectedDevice}
           existingRequest={requestByDeviceId.get(selectedDevice.id)}
           onClose={() => setSelectedDevice(null)}
+          onMessageVendor={(req) => {
+            setSelectedDevice(null);
+            setChatRequest({ request: req, deviceName: selectedDevice.name });
+          }}
+        />
+      )}
+
+      {chatRequest && (
+        <VendorChat
+          paymentRequest={chatRequest.request}
+          deviceName={chatRequest.deviceName}
+          onClose={() => setChatRequest(null)}
         />
       )}
     </div>

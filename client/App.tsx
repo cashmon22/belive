@@ -26,6 +26,7 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminApplications from "./pages/AdminApplications";
 import AdminDevices from "./pages/AdminDevices";
 import AdminDeviceRequests from "./pages/AdminDeviceRequests";
+import AdminMessages from "./pages/AdminMessages";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./lib/auth";
@@ -51,6 +52,7 @@ const pageTitles: Record<string, string> = {
   "/admin/users": "Amazon Contributor Admin | Users",
   "/admin/applications": "Amazon Contributor Admin | Applications",
   "/admin/device-requests": "Amazon Contributor Admin | Device Requests",
+  "/admin/messages": "Amazon Contributor Admin | Messages",
   "/admin/devices": "Amazon Contributor Admin | Devices",
 };
 
@@ -93,6 +95,7 @@ const App = () => (
               <Route path="users" element={<AdminUsers />} />
               <Route path="applications" element={<AdminApplications />} />
               <Route path="device-requests" element={<AdminDeviceRequests />} />
+              <Route path="messages" element={<AdminMessages />} />
               <Route path="devices" element={<AdminDevices />} />
             </Route>
           </Route>

@@ -26,6 +26,13 @@ import {
   listBalanceTransactions,
   removeUserBalance,
 } from "./routes/admin-balance";
+import {
+  createOrGetConversation,
+  getConversation,
+  listConversations,
+  markConversationRead,
+  sendMessage,
+} from "./routes/vendor-messages";
 
 export function createServer() {
   const app = express();
@@ -64,6 +71,13 @@ export function createServer() {
   app.get("/api/admin/applications/:id", getAdminApplicationDetails);
   app.patch("/api/admin/applications/:id/status", updateAdminApplicationStatus);
   app.patch("/api/admin/applications/:id/verification", updateAdminApplicationVerification);
+
+  // Vendor messaging
+  app.post("/api/vendor-conversations", createOrGetConversation);
+  app.get("/api/vendor-conversations", listConversations);
+  app.get("/api/vendor-conversations/:id", getConversation);
+  app.post("/api/vendor-conversations/:id/messages", sendMessage);
+  app.patch("/api/vendor-conversations/:id/read", markConversationRead);
 
   return app;
 }

@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   Monitor,
   Search,
   Settings,
@@ -24,6 +25,7 @@ const navigation = [
   { label: "Users", href: "/admin/users", icon: Users },
   { label: "Applications", href: "/admin/applications", icon: BriefcaseBusiness },
   { label: "Device Requests", href: "/admin/device-requests", icon: ClipboardList },
+  { label: "Messages", href: "/admin/messages", icon: MessageSquare },
   { label: "Devices", href: "/admin/devices", icon: Monitor },
 ];
 
@@ -42,6 +44,11 @@ const sectionDetails: Record<string, { eyebrow: string; title: string; descripti
     eyebrow: "Operations",
     title: "Device Requests",
     description: "Keep track of device authorization requests and their status.",
+  },
+  messages: {
+    eyebrow: "Communications",
+    title: "Messages",
+    description: "Manage conversations with contributors about their device requests.",
   },
   devices: {
     eyebrow: "Inventory",
