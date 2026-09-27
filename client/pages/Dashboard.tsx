@@ -217,7 +217,7 @@ export default function Dashboard() {
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [today, setToday] = useState(() => new Date());
-  const { availableBalance, paymentGatewayConfigured } = useContributorEarnings(session);
+  const { availableBalance, pendingEarnings, totalWithdrawn, paymentGatewayConfigured } = useContributorEarnings(session);
   const currentDate = useMemo(
     () => new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(today),
     [today],
@@ -435,9 +435,9 @@ export default function Dashboard() {
                 <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
                   <SectionHeading icon={WalletCards} eyebrow="Financial overview" title="Earnings Overview" action="No earnings yet" />
                   <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <Metric label="Available balance" value="$0.00" accent />
-                    <Metric label="Pending earnings" value="$0.00" />
-                    <Metric label="Total withdrawn" value="$0.00" />
+                    <Metric label="Available balance" value={`$${availableBalance.toFixed(2)}`} accent />
+                    <Metric label="Pending earnings" value={`$${pendingEarnings.toFixed(2)}`} />
+                    <Metric label="Total withdrawn" value={`$${totalWithdrawn.toFixed(2)}`} />
                   </div>
                   <p className="mt-4 text-[11px] leading-5 text-slate-500">Earnings and balance information will update when eligible assignments are completed.</p>
                 </section>

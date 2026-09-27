@@ -33,7 +33,7 @@ export function useContributorEarnings(
 
     let isMounted = true;
 
-    (async () => {
+    const fetchEarnings = async () => {
       try {
         const { data, error } = await supabase
           .from("contributor_earnings")
@@ -60,10 +60,29 @@ export function useContributorEarnings(
       } finally {
         if (isMounted) setIsLoading(false);
       }
-    })();
+    };
+
+    fetchEarnings();
+
+    // Subscribe to realtime changes so the wallet auto-updates when an admin
+    // adjusts the balance via the server-side RPC.
+    const channel = supabase
+      .channel(`contributor_earnings:${session.user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "contributor_earnings",
+          filter: `user_id=eq.${session.user.id}`,
+        },
+        () => fetchEarnings(),
+      )
+      .subscribe();
 
     return () => {
       isMounted = false;
+      supabase.removeChannel(channel);
     };
   }, [session?.user?.id]);
 
