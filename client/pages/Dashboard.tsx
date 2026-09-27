@@ -35,7 +35,7 @@ import EarningsSection from "@/components/dashboard/EarningsSection";
 import ProfileSection from "@/components/dashboard/ProfileSection";
 import SupportSection from "@/components/dashboard/SupportSection";
 import DeviceNotRecognizedModal from "@/components/dashboard/DeviceNotRecognizedModal";
-import type { Assignment } from "@/lib/assignments";
+import { assignments, type Assignment } from "@/lib/assignments";
 
 const sidebarItems: Array<{ label: string; icon: LucideIcon }> = [
   { label: "Dashboard", icon: LayoutDashboard },
@@ -56,7 +56,7 @@ const onboardingItems = [
 
 const contributorId = "CTR-162-717";
 const contributorName = "Contributor";
-const availableAssignments = 12;
+const availableAssignments = assignments.filter((a) => a.status === "Available").length;
 const paymentGatewayConfigured = false;
 
 function DashboardLogo({ dark = false }: { dark?: boolean }) {
@@ -415,7 +415,9 @@ export default function Dashboard() {
                 <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
                   <SectionHeading icon={BriefcaseBusiness} eyebrow="Work overview" title="Assignments Overview" action="No activity yet" />
                   <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <Metric label="Available assignments" value="0" accent />
+                    <button type="button" onClick={() => selectNavItem("Assignments")} className="text-left transition hover:scale-[1.02]">
+                      <Metric label="Available assignments" value={String(availableAssignments)} accent />
+                    </button>
                     <Metric label="Pending assignments" value="0" />
                     <Metric label="Completed assignments" value="0" />
                   </div>
