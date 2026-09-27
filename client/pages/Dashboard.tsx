@@ -473,7 +473,7 @@ export default function Dashboard() {
               />
             )}
             {activeItem === "My Tasks" && <MyTasksSection />}
-            {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} />}
+            {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} session={session} />}
             {activeItem === "Profile" && <ProfileSection session={session} contributorId={contributorId} />}
             {activeItem === "Support" && <SupportSection />}
 

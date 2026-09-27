@@ -1,7 +1,10 @@
 import { CircleDollarSign, TrendingUp, Wallet, WalletCards } from "lucide-react";
+import type { Session } from "@supabase/supabase-js";
+import { useContributorEarnings } from "@/lib/earnings";
 
 interface EarningsSectionProps {
   contributorId: string;
+  session: Session | null;
 }
 
 function Metric({
@@ -27,7 +30,9 @@ function Metric({
   );
 }
 
-export default function EarningsSection({ contributorId }: EarningsSectionProps) {
+export default function EarningsSection({ contributorId, session }: EarningsSectionProps) {
+  const { availableBalance, pendingEarnings, totalWithdrawn } = useContributorEarnings(session);
+
   return (
     <div>
       <div className="border-b border-slate-200 pb-6">
@@ -51,7 +56,7 @@ export default function EarningsSection({ contributorId }: EarningsSectionProps)
             <p className="text-xs font-bold text-slate-500">Available balance</p>
           </div>
           <p className="mt-4 text-3xl font-extrabold tracking-[-0.04em] text-orange">
-            $0.00
+            ${availableBalance.toFixed(2)}
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
@@ -62,7 +67,7 @@ export default function EarningsSection({ contributorId }: EarningsSectionProps)
             <p className="text-xs font-bold text-slate-500">Pending earnings</p>
           </div>
           <p className="mt-4 text-3xl font-extrabold tracking-[-0.04em] text-navy">
-            $0.00
+            ${pendingEarnings.toFixed(2)}
           </p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
@@ -73,7 +78,7 @@ export default function EarningsSection({ contributorId }: EarningsSectionProps)
             <p className="text-xs font-bold text-slate-500">Total withdrawn</p>
           </div>
           <p className="mt-4 text-3xl font-extrabold tracking-[-0.04em] text-navy">
-            $0.00
+            ${totalWithdrawn.toFixed(2)}
           </p>
         </div>
       </div>

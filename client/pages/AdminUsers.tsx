@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Search, ShieldCheck, UserRound, X } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, Plus, Minus, Search, ShieldCheck, UserRound, Wallet, X } from "lucide-react";
 import type { AdminUser, AdminUserStatus } from "@shared/admin-users";
+import type { BalanceTransaction } from "@shared/admin-balance";
 import { getAdminUserDetails, listAdminUsers, updateAdminUserStatus } from "@/lib/admin-users";
+import { addUserBalance, getUserBalance, listBalanceTransactions, removeUserBalance } from "@/lib/admin-balance";
 
 function formatDate(value: string | null) {
   if (!value) return "Never";
@@ -16,6 +18,14 @@ export default function AdminUsers() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState("");
+  const [balance, setBalance] = useState<number | null>(null);
+  const [transactions, setTransactions] = useState<BalanceTransaction[]>([]);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [balanceAction, setBalanceAction] = useState<"add" | "remove" | null>(null);
+  const [amountInput, setAmountInput] = useState("");
+  const [noteInput, setNoteInput] = useState("");
+  const [balanceSubmitting, setBalanceSubmitting] = useState(false);
+  const [balanceError, setBalanceError] = useState("");
 
   const loadUsers = async (query: string) => {
     setIsLoading(true);
@@ -42,11 +52,61 @@ export default function AdminUsers() {
 
   const handleSelectUser = async (user: AdminUser) => {
     setSelectedUser(user);
+    setBalance(null);
+    setTransactions([]);
+    setBalanceAction(null);
+    setAmountInput("");
+    setNoteInput("");
+    setBalanceError("");
     try {
       const details = await getAdminUserDetails(user.id);
       setSelectedUser(details);
     } catch {
       setSelectedUser(user);
+    }
+    void loadBalanceData(user.id);
+  };
+
+  const loadBalanceData = async (userId: string) => {
+    setBalanceLoading(true);
+    setBalanceError("");
+    try {
+      const [balanceData, transactionsData] = await Promise.all([
+        getUserBalance(userId),
+        listBalanceTransactions(userId),
+      ]);
+      setBalance(balanceData.availableBalance);
+      setTransactions(transactionsData);
+    } catch (err) {
+      setBalanceError(err instanceof Error ? err.message : "Unable to load balance data.");
+    } finally {
+      setBalanceLoading(false);
+    }
+  };
+
+  const handleBalanceSubmit = async () => {
+    if (!selectedUser || balanceSubmitting) return;
+    const amount = parseFloat(amountInput);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setBalanceError("Enter a valid positive amount.");
+      return;
+    }
+    setBalanceSubmitting(true);
+    setBalanceError("");
+    try {
+      if (balanceAction === "add") {
+        await addUserBalance(selectedUser.id, { amount, note: noteInput.trim() || undefined });
+      } else {
+        await removeUserBalance(selectedUser.id, { amount, note: noteInput.trim() || undefined });
+      }
+      setBalanceAction(null);
+      setAmountInput("");
+      setNoteInput("");
+      await loadBalanceData(selectedUser.id);
+    } catch (err) {
+      setBalanceError(err instanceof Error ? err.message : "Unable to update balance.");
+    } finally {
+      setBalanceSubmitting(false);
     }
   };
 
@@ -90,7 +150,81 @@ export default function AdminUsers() {
         {isLoading ? <div className="px-5 py-14 text-center text-sm text-slate-500">Loading user accounts...</div> : users.length === 0 ? <div className="px-5 py-14 text-center"><UserRound size={23} className="mx-auto text-slate-300" /><p className="mt-3 text-sm font-bold text-navy">No users found</p><p className="mt-1 text-xs text-slate-500">Try a different name or email search.</p></div> : <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left"><thead className="bg-[#fbfcfd] text-[10px] font-bold uppercase tracking-wide text-slate-400"><tr><th className="px-6 py-3">User</th><th className="px-6 py-3">Email</th><th className="px-6 py-3">Created</th><th className="px-6 py-3">Status</th><th className="px-6 py-3"><span className="sr-only">Actions</span></th></tr></thead><tbody className="divide-y divide-slate-100">{users.map((user) => <tr key={user.id} className="transition hover:bg-[#fbfcfd]"><td className="px-6 py-4"><button type="button" onClick={() => void handleSelectUser(user)} className="flex items-center gap-3 text-left"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-orange/10 text-xs font-extrabold text-orange">{user.name.slice(0, 1).toUpperCase()}</span><span className="text-sm font-bold text-navy hover:text-orange">{user.name}</span></button></td><td className="px-6 py-4 text-sm text-slate-600">{user.email}</td><td className="px-6 py-4 text-xs text-slate-500">{formatDate(user.createdAt)}</td><td className="px-6 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-bold ${user.status === "Active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{user.status}</span></td><td className="px-6 py-4 text-right"><button type="button" onClick={() => void handleSelectUser(user)} className="text-xs font-bold text-navy transition hover:text-orange">View details</button></td></tr>)}</tbody></table></div>}
       </div>
 
-      {selectedUser && <div className="fixed inset-0 z-50 flex items-end justify-center bg-navy/45 p-0 backdrop-blur-sm sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label="User details" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedUser(null); }}><section className="w-full max-w-lg rounded-t-xl bg-white p-6 shadow-2xl sm:rounded-xl sm:p-7"><div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Account details</p><h3 className="mt-2 text-xl font-extrabold text-navy">{selectedUser.name}</h3></div><button type="button" onClick={() => setSelectedUser(null)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-navy" aria-label="Close user details"><X size={18} /></button></div><dl className="mt-6 divide-y divide-slate-100 rounded-lg border border-slate-200"><div className="flex justify-between gap-5 px-4 py-3 text-sm"><dt className="text-slate-500">Email</dt><dd className="text-right font-semibold text-navy">{selectedUser.email}</dd></div><div className="flex justify-between gap-5 px-4 py-3 text-sm"><dt className="text-slate-500">Account created</dt><dd className="font-semibold text-navy">{formatDate(selectedUser.createdAt)}</dd></div><div className="flex justify-between gap-5 px-4 py-3 text-sm"><dt className="text-slate-500">Last sign in</dt><dd className="font-semibold text-navy">{formatDate(selectedUser.lastSignInAt)}</dd></div><div className="flex items-center justify-between gap-5 px-4 py-3 text-sm"><dt className="text-slate-500">Account status</dt><dd><select value={selectedUser.status} disabled={isUpdating} onChange={(event) => void handleStatusChange(event.target.value as AdminUserStatus)} className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-navy outline-none focus:border-orange"><option>Active</option><option>Suspended</option></select></dd></div></dl><p className="mt-4 text-xs leading-5 text-slate-500">Only account status can be changed here. Passwords, tokens, and secret credentials are never displayed.</p></section></div>}
+      {selectedUser && <div className="fixed inset-0 z-50 flex items-end justify-center bg-navy/45 p-0 backdrop-blur-sm sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label="User details" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedUser(null); }}><section className="w-full max-w-lg rounded-t-xl bg-white p-6 shadow-2xl sm:rounded-xl sm:p-7"><div className="flex items-start justify-between gap-4"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Account details</p><h3 className="mt-2 text-xl font-extrabold text-navy">{selectedUser.name}</h3></div><button type="button" onClick={() => setSelectedUser(null)} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-navy" aria-label="Close user details"><X size={18} /></button></div><dl className="mt-6 divide-y divide-slate-100 rounded-lg border border-slate-200"><div className="flex justify-between gap-5 px-4 py-3 text-sm"><dt className="text-slate-500">Email</dt><dd className="text-right font-semibold text-navy">{selectedUser.email}</dd></div><div className="flex justify-between gap-5 px-4 py-3 text-sm"><dt className="text-slate-500">Account created</dt><dd className="font-semibold text-navy">{formatDate(selectedUser.createdAt)}</dd></div><div className="flex justify-between gap-5 px-4 py-3 text-sm"><dt className="text-slate-500">Last sign in</dt><dd className="font-semibold text-navy">{formatDate(selectedUser.lastSignInAt)}</dd></div><div className="flex items-center justify-between gap-5 px-4 py-3 text-sm"><dt className="text-slate-500">Account status</dt><dd><select value={selectedUser.status} disabled={isUpdating} onChange={(event) => void handleStatusChange(event.target.value as AdminUserStatus)} className="rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-navy outline-none focus:border-orange"><option>Active</option><option>Suspended</option></select></dd></div></dl>
+
+                {/* Balance Management */}
+                <div className="mt-6 rounded-lg border border-slate-200">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <Wallet size={16} className="text-orange" />
+                      <h4 className="text-xs font-extrabold text-navy">Balance Management</h4>
+                    </div>
+                    <div className="text-right">
+                      {balanceLoading ? (
+                        <span className="text-xs text-slate-400">Loading…</span>
+                      ) : (
+                        <span className="text-lg font-extrabold text-orange">${(balance ?? 0).toFixed(2)}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="px-4 py-3">
+                    {balanceError && <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700" role="alert">{balanceError}</div>}
+
+                    {!balanceAction && (
+                      <div className="flex gap-2">
+                        <button type="button" onClick={() => { setBalanceAction("add"); setAmountInput(""); setNoteInput(""); setBalanceError(""); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700 transition hover:bg-emerald-100"><Plus size={14} /> Add Balance</button>
+                        <button type="button" onClick={() => { setBalanceAction("remove"); setAmountInput(""); setNoteInput(""); setBalanceError(""); }} className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-red-50 px-3 py-2 text-xs font-bold text-red-700 transition hover:bg-red-100"><Minus size={14} /> Remove Balance</button>
+                      </div>
+                    )}
+
+                    {balanceAction && (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Amount (USD)</label>
+                          <input type="number" step="0.01" min="0.01" value={amountInput} onChange={(e) => setAmountInput(e.target.value)} placeholder="0.00" className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-navy outline-none focus:border-orange focus:ring-2 focus:ring-orange/10" autoFocus />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-400">Admin note (optional)</label>
+                          <input type="text" value={noteInput} onChange={(e) => setNoteInput(e.target.value)} placeholder="Reason for adjustment" className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-navy outline-none focus:border-orange focus:ring-2 focus:ring-orange/10" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button type="button" onClick={() => { setBalanceAction(null); setAmountInput(""); setNoteInput(""); setBalanceError(""); }} className="rounded-md border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 transition hover:border-navy hover:text-navy">Cancel</button>
+                          <button type="button" onClick={() => void handleBalanceSubmit()} disabled={balanceSubmitting} className={`flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-xs font-extrabold text-white transition disabled:cursor-not-allowed disabled:opacity-60 ${balanceAction === "add" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-red-600 hover:bg-red-700"}`}>
+                            {balanceSubmitting ? "Processing…" : balanceAction === "add" ? `Confirm Add${amountInput ? ` $${parseFloat(amountInput).toFixed(2)}` : ""}` : `Confirm Remove${amountInput ? ` $${parseFloat(amountInput).toFixed(2)}` : ""}`}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Balance History */}
+                  <div className="border-t border-slate-100 px-4 py-3">
+                    <p className="mb-2 text-[10px] font-bold uppercase tracking-wide text-slate-400">Balance History</p>
+                    {transactions.length === 0 ? (
+                      <p className="text-xs text-slate-400">No balance changes recorded.</p>
+                    ) : (
+                      <div className="max-h-40 space-y-2 overflow-y-auto">
+                        {transactions.map((tx) => (
+                          <div key={tx.id} className="flex items-start gap-2 rounded-md bg-[#fbfcfd] px-3 py-2">
+                            <span className={`mt-0.5 shrink-0 ${tx.type === "Added" ? "text-emerald-600" : "text-red-600"}`}>
+                              {tx.type === "Added" ? <ArrowUpCircle size={14} /> : <ArrowDownCircle size={14} />}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center justify-between gap-2">
+                                <span className="text-xs font-bold text-navy">{tx.type === "Added" ? "+" : "−"}${tx.amount.toFixed(2)}</span>
+                                <span className="text-[10px] text-slate-400">{new Intl.DateTimeFormat("en-US", { dateStyle: "short", timeStyle: "short" }).format(new Date(tx.createdAt))}</span>
+                              </div>
+                              <p className="text-[10px] text-slate-400">Balance: ${tx.previousBalance.toFixed(2)} → ${tx.newBalance.toFixed(2)}{tx.adminNote ? ` · ${tx.adminNote}` : ""}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <p className="mt-4 text-xs leading-5 text-slate-500">Only account status and balance can be changed here. Passwords, tokens, and secret credentials are never displayed.</p></section></div>}
     </>
   );
 }

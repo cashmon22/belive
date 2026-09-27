@@ -19,6 +19,12 @@ import {
   mirrorApplication,
   updateAdminApplicationStatus,
 } from "./routes/admin-applications";
+import {
+  addUserBalance,
+  getUserBalance,
+  listBalanceTransactions,
+  removeUserBalance,
+} from "./routes/admin-balance";
 
 export function createServer() {
   const app = express();
@@ -48,6 +54,10 @@ export function createServer() {
   app.get("/api/admin/users", listAdminUsers);
   app.get("/api/admin/users/:id", getAdminUserDetails);
   app.patch("/api/admin/users/:id/status", updateAdminUserStatus);
+  app.get("/api/admin/users/:id/balance", getUserBalance);
+  app.post("/api/admin/users/:id/balance/add", addUserBalance);
+  app.post("/api/admin/users/:id/balance/remove", removeUserBalance);
+  app.get("/api/admin/users/:id/balance/transactions", listBalanceTransactions);
   app.post("/api/applications/mirror", mirrorApplication);
   app.get("/api/admin/applications", listAdminApplications);
   app.get("/api/admin/applications/:id", getAdminApplicationDetails);
