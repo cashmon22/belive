@@ -1,9 +1,9 @@
--- Vendor + Support messaging system: conversations and messages between users and admin.
--- Vendor conversations: one per (user_id, payment_request_id) pair — tied to an approved device request.
--- Support conversations: one per user — automatically available, not tied to a device.
+-- Vendor + Support messaging system — IDEMPOTENT migration.
+-- Safe to run multiple times. Does NOT drop tables or data.
+-- Run this in the Supabase SQL Editor.
 
 -- ============================================================
--- Tables
+-- 1. Tables (create only if missing)
 -- ============================================================
 
 create table if not exists public.vendor_conversations (
@@ -38,7 +38,29 @@ create table if not exists public.vendor_messages (
 );
 
 -- ============================================================
--- Indexes + unique constraints
+-- 2. Columns (add only if missing — handles partial prior runs)
+-- ============================================================
+
+alter table public.vendor_conversations add column if not exists conversation_type text not null default 'vendor';
+alter table public.vendor_conversations add column if not exists payment_request_id uuid;
+alter table public.vendor_conversations add column if not exists device_id text;
+alter table public.vendor_conversations add column if not exists device_name text;
+alter table public.vendor_conversations add column if not exists device_model text;
+alter table public.vendor_conversations add column if not exists reference_number text;
+alter table public.vendor_conversations add column if not exists request_status text;
+alter table public.vendor_conversations add column if not exists status text not null default 'active';
+alter table public.vendor_conversations add column if not exists last_message text;
+alter table public.vendor_conversations add column if not exists last_message_at timestamptz;
+alter table public.vendor_conversations add column if not exists user_unread_count int not null default 0;
+alter table public.vendor_conversations add column if not exists admin_unread_count int not null default 0;
+
+alter table public.vendor_messages add column if not exists sender_id uuid;
+alter table public.vendor_messages add column if not exists sender_role text;
+alter table public.vendor_messages add column if not exists body text;
+alter table public.vendor_messages add column if not exists read_at timestamptz;
+
+-- ============================================================
+-- 3. Indexes (idempotent)
 -- ============================================================
 
 create index if not exists vendor_conversations_user_id_idx on public.vendor_conversations (user_id);
@@ -47,18 +69,16 @@ create index if not exists vendor_conversations_last_message_at_idx on public.ve
 create index if not exists vendor_conversations_conversation_type_idx on public.vendor_conversations (conversation_type);
 create index if not exists vendor_messages_conversation_id_idx on public.vendor_messages (conversation_id, created_at asc);
 
--- One vendor conversation per (user, payment_request)
 create unique index if not exists vendor_conversations_vendor_unique
   on public.vendor_conversations (user_id, payment_request_id)
   where conversation_type = 'vendor';
 
--- One support conversation per user
 create unique index if not exists vendor_conversations_support_unique
   on public.vendor_conversations (user_id)
   where conversation_type = 'support';
 
 -- ============================================================
--- Auto-update updated_at trigger
+-- 4. updated_at trigger (idempotent)
 -- ============================================================
 
 create or replace function public.set_updated_at()
@@ -78,13 +98,31 @@ create trigger vendor_conversations_updated_at
   execute function public.set_updated_at();
 
 -- ============================================================
--- Row Level Security
+-- 5. RLS — drop ALL existing policies dynamically, then recreate
+--    This avoids any "policy already exists" error regardless of
+--    what policies a prior partial run may have left behind.
 -- ============================================================
 
 alter table public.vendor_conversations enable row level security;
 alter table public.vendor_messages enable row level security;
 
--- Conversations: users see their own, admins see all
+-- Drop every policy that currently exists on both tables
+do $$
+declare
+  pol record;
+begin
+  for pol in
+    select schemaname, tablename, policyname
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('vendor_conversations', 'vendor_messages')
+  loop
+    execute format('drop policy if exists %I on public.%I', pol.policyname, pol.tablename);
+  end loop;
+end
+$$;
+
+-- Recreate the correct policies from scratch
 create policy "Users can view own conversations"
   on public.vendor_conversations for select
   using (auth.uid() = user_id or (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
@@ -97,7 +135,6 @@ create policy "Users can update own conversations"
   on public.vendor_conversations for update
   using (auth.uid() = user_id or (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
--- Messages: users see messages in their own conversations, admins see all
 create policy "Users can view own messages"
   on public.vendor_messages for select
   using (
@@ -136,14 +173,37 @@ create policy "Users can update read status on own messages"
   );
 
 -- ============================================================
--- Realtime publication (required by AdminMessages + user Messages)
+-- 6. Realtime publication (add only if not already a member)
 -- ============================================================
 
-alter publication supabase_realtime add table public.vendor_conversations;
-alter publication supabase_realtime add table public.vendor_messages;
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+    and schemaname = 'public'
+    and tablename = 'vendor_conversations'
+  ) then
+    alter publication supabase_realtime add table public.vendor_conversations;
+  end if;
+end
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime'
+    and schemaname = 'public'
+    and tablename = 'vendor_messages'
+  ) then
+    alter publication supabase_realtime add table public.vendor_messages;
+  end if;
+end
+$$;
 
 -- ============================================================
--- Reload PostgREST schema cache
+-- 7. Reload PostgREST schema cache
 -- ============================================================
 
 notify pgrst, 'reload schema';
