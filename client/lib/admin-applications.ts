@@ -1,10 +1,11 @@
-import type { AdminApplication, AdminApplicationStatus, AdminApplicationsResponse } from "@shared/admin-applications";
+import type { AdminApplication, AdminApplicationStatus, AdminApplicationsResponse, VerificationStatus } from "@shared/admin-applications";
 import { supabase } from "./supabase";
 
 type ApplicationRow = {
   application_id: string;
   submission_date: string;
   review_status: AdminApplicationStatus;
+  verification_status: VerificationStatus;
   first_name: string;
   last_name: string;
   email: string;
@@ -18,7 +19,7 @@ type ApplicationRow = {
   eligibility: unknown;
 };
 
-const applicationFields = "application_id, submission_date, review_status, first_name, last_name, email, phone, country, time_zone, interests, hours, experience, reason, eligibility";
+const applicationFields = "application_id, submission_date, review_status, verification_status, first_name, last_name, email, phone, country, time_zone, interests, hours, experience, reason, eligibility";
 
 function rowToApplication(row: ApplicationRow): AdminApplication {
   return {
@@ -26,8 +27,10 @@ function rowToApplication(row: ApplicationRow): AdminApplication {
     applicantName: `${row.first_name} ${row.last_name}`.trim() || "Unnamed applicant",
     email: row.email,
     phone: row.phone,
+    country: row.country,
     applicationDate: row.submission_date,
     status: row.review_status,
+    verificationStatus: row.verification_status,
     details: {
       firstName: row.first_name,
       lastName: row.last_name,
@@ -53,13 +56,18 @@ async function getApplicationRows() {
   return (data ?? []) as ApplicationRow[];
 }
 
-export async function listAdminApplications(search: string, status: AdminApplicationStatus | ""): Promise<AdminApplicationsResponse> {
+export async function listAdminApplications(
+  search: string,
+  status: AdminApplicationStatus | "",
+  verification: VerificationStatus | "",
+): Promise<AdminApplicationsResponse> {
   const query = search.trim().toLowerCase();
   const applications = (await getApplicationRows())
     .map(rowToApplication)
     .filter((application) =>
       (!query || application.applicantName.toLowerCase().includes(query) || application.email.toLowerCase().includes(query)) &&
-      (!status || application.status === status),
+      (!status || application.status === status) &&
+      (!verification || application.verificationStatus === verification),
     );
   return { applications, total: applications.length };
 }
@@ -85,4 +93,16 @@ export async function updateAdminApplicationStatus(id: string, status: AdminAppl
   if (error) throw error;
   if (!data) throw new Error("Application not found.");
   return { id, status };
+}
+
+export async function updateAdminApplicationVerification(id: string, verificationStatus: VerificationStatus) {
+  const { data, error } = await supabase
+    .from("applications")
+    .update({ verification_status: verificationStatus })
+    .eq("application_id", id)
+    .select("application_id")
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Application not found.");
+  return { id, verificationStatus };
 }

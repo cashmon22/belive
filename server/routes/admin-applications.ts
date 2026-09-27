@@ -1,8 +1,9 @@
 import type { Request, RequestHandler } from "express";
 import { createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
-import type { AdminApplication, AdminApplicationStatus } from "../../shared/admin-applications";
+import type { AdminApplication, AdminApplicationStatus, VerificationStatus } from "../../shared/admin-applications";
 
 const allowedStatuses: AdminApplicationStatus[] = ["Under Review", "Approved", "Rejected"];
+const allowedVerificationStatuses: VerificationStatus[] = ["Verified", "Not Verified"];
 const applicationFields = ["firstName", "lastName", "email", "phone", "country", "timeZone", "interests", "hours", "experience", "reason", "eligibility"] as const;
 
 type ApplicationInput = Record<string, unknown> & { applicationId?: unknown; submittedAt?: unknown };
@@ -11,6 +12,7 @@ type ApplicationRow = {
   application_id: string;
   submission_date: string;
   review_status: AdminApplicationStatus;
+  verification_status: VerificationStatus;
   first_name: string;
   last_name: string;
   email: string;
@@ -70,8 +72,10 @@ function rowToApplication(row: ApplicationRow): AdminApplication {
     applicantName: `${row.first_name} ${row.last_name}`.trim() || "Unnamed applicant",
     email: row.email,
     phone: row.phone,
+    country: row.country,
     applicationDate: row.submission_date,
     status: row.review_status,
+    verificationStatus: row.verification_status,
     details,
   };
 }
@@ -111,7 +115,7 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
 async function listRows(req: Request, res: Parameters<RequestHandler>[1]) {
   const serviceSupabase = serviceClient(res);
   if (!serviceSupabase) return null;
-  const { data, error } = await serviceSupabase.from("applications").select("application_id, submission_date, review_status, first_name, last_name, email, phone, country, time_zone, interests, hours, experience, reason, eligibility").order("submission_date", { ascending: false });
+  const { data, error } = await serviceSupabase.from("applications").select("application_id, submission_date, review_status, verification_status, first_name, last_name, email, phone, country, time_zone, interests, hours, experience, reason, eligibility").order("submission_date", { ascending: false });
   if (error) {
     res.status(500).json({ error: "Unable to load applications." });
     return null;
@@ -159,4 +163,21 @@ export const updateAdminApplicationStatus: RequestHandler = async (req, res) => 
     return;
   }
   res.json({ id: req.params.id, status });
+};
+
+export const updateAdminApplicationVerification: RequestHandler = async (req, res) => {
+  if (!(await getAdminUser(req, res))) return;
+  const serviceSupabase = serviceClient(res);
+  if (!serviceSupabase) return;
+  const verificationStatus = req.body?.verificationStatus as VerificationStatus;
+  if (!allowedVerificationStatuses.includes(verificationStatus)) {
+    res.status(400).json({ error: "Invalid verification status." });
+    return;
+  }
+  const { error } = await serviceSupabase.from("applications").update({ verification_status: verificationStatus }).eq("application_id", req.params.id);
+  if (error) {
+    res.status(500).json({ error: "Unable to update verification status." });
+    return;
+  }
+  res.json({ id: req.params.id, verificationStatus });
 };

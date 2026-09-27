@@ -18,6 +18,7 @@ import {
   listAdminApplications,
   mirrorApplication,
   updateAdminApplicationStatus,
+  updateAdminApplicationVerification,
 } from "./routes/admin-applications";
 import {
   addUserBalance,
@@ -62,6 +63,7 @@ export function createServer() {
   app.get("/api/admin/applications", listAdminApplications);
   app.get("/api/admin/applications/:id", getAdminApplicationDetails);
   app.patch("/api/admin/applications/:id/status", updateAdminApplicationStatus);
+  app.patch("/api/admin/applications/:id/verification", updateAdminApplicationVerification);
 
   return app;
 }
