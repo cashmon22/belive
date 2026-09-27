@@ -16,12 +16,10 @@ create policy "Users can view their own earnings"
   to authenticated
   using (auth.uid() = user_id);
 
-drop policy if exists "Users can update their own earnings" on public.contributor_earnings;
-create policy "Users can update their own earnings"
-  on public.contributor_earnings for update
-  to authenticated
-  using (auth.uid() = user_id)
-  with check (auth.uid() = user_id);
+-- NOTE: No UPDATE policy for regular users. Balance changes happen ONLY through
+-- the server-side admin API calling the security-definer adjust_user_balance() RPC.
+-- Revoke direct table writes from authenticated/anon as a defense-in-depth measure.
+revoke update, insert, delete on public.contributor_earnings from anon, authenticated;
 
 -- Auto-create an earnings row for new users
 create or replace function public.handle_new_contributor_earnings()

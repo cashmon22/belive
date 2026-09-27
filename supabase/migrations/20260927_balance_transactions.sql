@@ -18,6 +18,9 @@ create policy "Users can view their own balance transactions"
   to authenticated
   using (auth.uid() = user_id);
 
+-- Users can only SELECT their own transaction history — never INSERT/UPDATE/DELETE.
+revoke insert, update, delete on public.balance_transactions from anon, authenticated;
+
 create index if not exists balance_transactions_user_id_created_at_idx
   on public.balance_transactions (user_id, created_at desc);
 
@@ -82,5 +85,10 @@ begin
   return transaction_record;
 end;
 $$;
+
+-- Restrict EXECUTE: only the service role (server-side admin API) can call this RPC.
+-- Regular authenticated and anonymous users are explicitly blocked from calling it directly.
+revoke execute on function public.adjust_user_balance(uuid, numeric, text, uuid, text) from anon, authenticated;
+grant execute on function public.adjust_user_balance(uuid, numeric, text, uuid, text) to service_role;
 
 notify pgrst, 'reload schema';
