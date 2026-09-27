@@ -2,9 +2,10 @@ import type { AdminApplication, AdminApplicationStatus, AdminApplicationsRespons
 import { supabase } from "./supabase";
 
 type ApplicationRow = {
-  application_id: string;
-  submission_date: string;
-  review_status: AdminApplicationStatus;
+  id: string;
+  submission_id: string;
+  created_at: string;
+  status: AdminApplicationStatus;
   verification_status: VerificationStatus;
   first_name: string;
   last_name: string;
@@ -12,24 +13,47 @@ type ApplicationRow = {
   phone: string;
   country: string;
   time_zone: string;
-  interests: unknown;
-  hours: string;
-  experience: string;
-  reason: string;
-  eligibility: unknown;
+  assignment_categories: unknown;
+  weekly_hours: string;
+  previous_experience: string;
+  motivation: string;
+  age_18_plus: boolean;
+  reliable_internet: boolean;
+  follows_instructions: boolean;
+  agrees_policies: boolean;
+  understands_review: boolean;
 };
 
-const applicationFields = "application_id, submission_date, review_status, verification_status, first_name, last_name, email, phone, country, time_zone, interests, hours, experience, reason, eligibility";
+const applicationFields =
+  "id, submission_id, created_at, status, verification_status, first_name, last_name, email, phone, country, time_zone, assignment_categories, weekly_hours, previous_experience, motivation, age_18_plus, reliable_internet, follows_instructions, agrees_policies, understands_review";
+
+const eligibilityLabels = [
+  "I am at least 18 years old.",
+  "I have reliable internet access.",
+  "I can follow assignment instructions accurately.",
+  "I agree to Contributor Program policies.",
+  "I understand applications are reviewed before approval.",
+];
+
+function rowEligibility(row: ApplicationRow): string[] {
+  return [
+    row.age_18_plus && eligibilityLabels[0],
+    row.reliable_internet && eligibilityLabels[1],
+    row.follows_instructions && eligibilityLabels[2],
+    row.agrees_policies && eligibilityLabels[3],
+    row.understands_review && eligibilityLabels[4],
+  ].filter(Boolean) as string[];
+}
 
 function rowToApplication(row: ApplicationRow): AdminApplication {
   return {
-    id: row.application_id,
+    id: row.submission_id,
     applicantName: `${row.first_name} ${row.last_name}`.trim() || "Unnamed applicant",
     email: row.email,
     phone: row.phone,
     country: row.country,
-    applicationDate: row.submission_date,
-    status: row.review_status,
+    applicationDate: row.created_at,
+    status: row.status,
     verificationStatus: row.verification_status,
     details: {
       firstName: row.first_name,
@@ -38,11 +62,11 @@ function rowToApplication(row: ApplicationRow): AdminApplication {
       phone: row.phone,
       country: row.country,
       timeZone: row.time_zone,
-      interests: row.interests,
-      hours: row.hours,
-      experience: row.experience,
-      reason: row.reason,
-      eligibility: row.eligibility,
+      interests: row.assignment_categories,
+      hours: row.weekly_hours,
+      experience: row.previous_experience,
+      reason: row.motivation,
+      eligibility: rowEligibility(row),
     },
   };
 }
@@ -51,7 +75,7 @@ async function getApplicationRows() {
   const { data, error } = await supabase
     .from("applications")
     .select(applicationFields)
-    .order("submission_date", { ascending: false });
+    .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as ApplicationRow[];
 }
@@ -76,7 +100,7 @@ export async function getAdminApplicationDetails(id: string) {
   const { data, error } = await supabase
     .from("applications")
     .select(applicationFields)
-    .eq("application_id", id)
+    .eq("submission_id", id)
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Application not found.");
@@ -86,9 +110,9 @@ export async function getAdminApplicationDetails(id: string) {
 export async function updateAdminApplicationStatus(id: string, status: AdminApplicationStatus) {
   const { data, error } = await supabase
     .from("applications")
-    .update({ review_status: status })
-    .eq("application_id", id)
-    .select("application_id")
+    .update({ status })
+    .eq("submission_id", id)
+    .select("submission_id")
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Application not found.");
@@ -99,8 +123,8 @@ export async function updateAdminApplicationVerification(id: string, verificatio
   const { data, error } = await supabase
     .from("applications")
     .update({ verification_status: verificationStatus })
-    .eq("application_id", id)
-    .select("application_id")
+    .eq("submission_id", id)
+    .select("submission_id")
     .maybeSingle();
   if (error) throw error;
   if (!data) throw new Error("Application not found.");
