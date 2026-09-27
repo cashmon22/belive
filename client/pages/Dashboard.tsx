@@ -6,7 +6,6 @@ import {
   ArrowRight,
   Bell,
   BriefcaseBusiness,
-  Check,
   CheckCircle2,
   ChevronRight,
   CircleDollarSign,
@@ -23,6 +22,7 @@ import {
   Settings,
   ShieldCheck,
   UserRound,
+  Wallet,
   WalletCards,
   X,
   ClipboardList,
@@ -36,6 +36,7 @@ import ProfileSection from "@/components/dashboard/ProfileSection";
 import SupportSection from "@/components/dashboard/SupportSection";
 import DeviceNotRecognizedModal from "@/components/dashboard/DeviceNotRecognizedModal";
 import { assignments, type Assignment } from "@/lib/assignments";
+import { useContributorEarnings } from "@/lib/earnings";
 
 const sidebarItems: Array<{ label: string; icon: LucideIcon }> = [
   { label: "Dashboard", icon: LayoutDashboard },
@@ -46,18 +47,9 @@ const sidebarItems: Array<{ label: string; icon: LucideIcon }> = [
   { label: "Support", icon: LifeBuoy },
 ];
 
-const onboardingItems = [
-  "Account Approved",
-  "Dashboard Access Granted",
-  "Review Contributor Guidelines",
-  "Contact Trusted Vendor",
-  "Access Future Assignments",
-];
-
 const contributorId = "CTR-162-717";
 const contributorName = "Contributor";
 const availableAssignments = assignments.filter((a) => a.status === "Available").length;
-const paymentGatewayConfigured = false;
 
 function DashboardLogo({ dark = false }: { dark?: boolean }) {
   return (
@@ -225,6 +217,7 @@ export default function Dashboard() {
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [today, setToday] = useState(() => new Date());
+  const { availableBalance, paymentGatewayConfigured } = useContributorEarnings(session);
   const currentDate = useMemo(
     () => new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(today),
     [today],
@@ -299,6 +292,21 @@ export default function Dashboard() {
             <button type="button" aria-label="View notifications" className="relative rounded-md p-2 text-white/70 transition hover:bg-white/10 hover:text-white">
               <Bell size={18} />
               <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-orange" />
+            </button>
+            <div className="hidden h-7 border-l border-white/15 sm:block" />
+            <button
+              type="button"
+              onClick={() => selectNavItem("Earnings")}
+              className="flex items-center gap-2 rounded-md px-2 py-1 text-left transition hover:bg-white/10"
+              aria-label={`Wallet balance: $${availableBalance.toFixed(2)}`}
+            >
+              <Wallet size={16} className="shrink-0 text-orange" />
+              <div className="leading-tight">
+                <p className="text-xs font-extrabold text-white">${availableBalance.toFixed(2)}</p>
+                <p className="text-[9px] text-white/50">
+                  {paymentGatewayConfigured ? "Payment configured" : "Setup payment gateway"}
+                </p>
+              </div>
             </button>
             <div className="hidden h-7 border-l border-white/15 sm:block" />
             <div className="flex items-center gap-2.5">
@@ -436,26 +444,6 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-5">
-                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
-                  <SectionHeading icon={ClipboardCheck} eyebrow="Your progress" title="Getting Started" action="2 of 5 complete" />
-                  <div className="mt-5 space-y-1">
-                    {onboardingItems.map((item, index) => {
-                      const complete = index < 2;
-                      return (
-                        <div key={item} className="flex items-center gap-3 rounded-md px-2 py-2.5">
-                          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${complete ? "bg-emerald-50 text-emerald-600" : "border border-slate-200 text-slate-300"}`}>
-                            {complete ? <Check size={13} strokeWidth={3} /> : <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />}
-                          </span>
-                          <span className={`text-xs ${complete ? "font-semibold text-navy" : "text-slate-500"}`}>{item}</span>
-                          {!complete && <ChevronRight size={14} className="ml-auto text-slate-300" />}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full w-2/5 rounded-full bg-orange" /></div>
-                  <p className="mt-2 text-[10px] text-slate-400">Keep moving through setup to prepare your account.</p>
-                </section>
-
                 <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
                   <SectionHeading icon={CreditCard} eyebrow="Account finance" title="Payments Overview" />
                   <div className="mt-6 text-center">
