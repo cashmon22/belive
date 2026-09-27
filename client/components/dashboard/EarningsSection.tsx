@@ -1,10 +1,14 @@
+import { useState } from "react";
 import { CircleDollarSign, TrendingUp, Wallet, WalletCards } from "lucide-react";
 import type { Session } from "@supabase/supabase-js";
 import { useContributorEarnings } from "@/lib/earnings";
+import WithdrawModal from "./WithdrawModal";
 
 interface EarningsSectionProps {
   contributorId: string;
   session: Session | null;
+  deviceVerified?: boolean;
+  onContactVendor?: () => void;
 }
 
 function Metric({
@@ -30,8 +34,9 @@ function Metric({
   );
 }
 
-export default function EarningsSection({ contributorId, session }: EarningsSectionProps) {
+export default function EarningsSection({ contributorId, session, deviceVerified = false, onContactVendor }: EarningsSectionProps) {
   const { availableBalance, pendingEarnings, totalWithdrawn } = useContributorEarnings(session);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
 
   return (
     <div>
@@ -58,6 +63,13 @@ export default function EarningsSection({ contributorId, session }: EarningsSect
           <p className="mt-4 text-3xl font-extrabold tracking-[-0.04em] text-orange">
             ${availableBalance.toFixed(2)}
           </p>
+          <button
+            type="button"
+            onClick={() => setWithdrawOpen(true)}
+            className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-4 py-2.5 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-light"
+          >
+            <Wallet size={15} /> Withdraw
+          </button>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
           <div className="flex items-center gap-3">
@@ -98,6 +110,15 @@ export default function EarningsSection({ contributorId, session }: EarningsSect
           </p>
         </div>
       </div>
+
+      {withdrawOpen && (
+        <WithdrawModal
+          availableBalance={availableBalance}
+          deviceVerified={deviceVerified}
+          onClose={() => setWithdrawOpen(false)}
+          onContactVendor={onContactVendor ?? (() => {})}
+        />
+      )}
     </div>
   );
 }

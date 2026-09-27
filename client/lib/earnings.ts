@@ -65,9 +65,10 @@ export function useContributorEarnings(
     fetchEarnings();
 
     // Subscribe to realtime changes so the wallet auto-updates when an admin
-    // adjusts the balance via the server-side RPC.
+    // adjusts the balance via the server-side RPC. Use a unique channel name
+    // per hook instance so multiple components can subscribe simultaneously.
     const channel = supabase
-      .channel(`contributor_earnings:${session.user.id}`)
+      .channel(`contributor_earnings:${session.user.id}:${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {

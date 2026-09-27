@@ -473,7 +473,7 @@ export default function Dashboard() {
               />
             )}
             {activeItem === "My Tasks" && <MyTasksSection />}
-            {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} session={session} />}
+            {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} session={session} deviceVerified={false} onContactVendor={() => setTrustedVendorOpen(true)} />}
             {activeItem === "Profile" && <ProfileSection session={session} contributorId={contributorId} />}
             {activeItem === "Support" && <SupportSection />}
 
