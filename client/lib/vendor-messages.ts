@@ -32,8 +32,24 @@ export function createOrGetConversation(input: CreateConversationInput) {
   });
 }
 
-export function listConversations() {
-  return request<VendorConversation[]>("/api/vendor-conversations");
+export function getOrCreateSupportConversation() {
+  return request<VendorConversation>("/api/vendor-conversations/support");
+}
+
+export function listConversations(type?: "vendor" | "support") {
+  const query = type ? `?type=${type}` : "";
+  return request<VendorConversation[]>(`/api/vendor-conversations${query}`);
+}
+
+export function adminCreateSupportConversation(userId: string) {
+  return request<VendorConversation>("/api/admin/support-conversations", {
+    method: "POST",
+    body: JSON.stringify({ userId }),
+  });
+}
+
+export function listAllUsers() {
+  return request<{ users: Array<{ id: string; name: string; email: string }> }>("/api/admin/users");
 }
 
 export function getConversation(id: string) {

@@ -1,5 +1,6 @@
--- Vendor messaging system: conversations and messages between users and the Trusted Vendor (admin).
--- One conversation per (user_id, payment_request_id) pair — no duplicates.
+-- Vendor + Support messaging system: conversations and messages between users and admin.
+-- Vendor conversations: one per (user_id, payment_request_id) pair — tied to an approved device request.
+-- Support conversations: one per user — automatically available, not tied to a device.
 
 -- ============================================================
 -- Tables
@@ -8,22 +9,22 @@
 create table if not exists public.vendor_conversations (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  payment_request_id uuid not null,
-  device_id text not null,
-  device_name text not null,
-  device_model text not null,
-  reference_number text not null,
+  conversation_type text not null default 'vendor' check (conversation_type in ('vendor', 'support')),
+  payment_request_id uuid,
+  device_id text,
+  device_name text,
+  device_model text,
+  reference_number text,
   user_name text not null,
   user_email text not null,
-  request_status text not null default 'Under Review',
+  request_status text,
   status text not null default 'active' check (status in ('active', 'closed')),
   last_message text,
   last_message_at timestamptz,
   user_unread_count int not null default 0,
   admin_unread_count int not null default 0,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (user_id, payment_request_id)
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.vendor_messages (
@@ -37,13 +38,24 @@ create table if not exists public.vendor_messages (
 );
 
 -- ============================================================
--- Indexes
+-- Indexes + unique constraints
 -- ============================================================
 
 create index if not exists vendor_conversations_user_id_idx on public.vendor_conversations (user_id);
 create index if not exists vendor_conversations_payment_request_id_idx on public.vendor_conversations (payment_request_id);
 create index if not exists vendor_conversations_last_message_at_idx on public.vendor_conversations (last_message_at desc);
+create index if not exists vendor_conversations_conversation_type_idx on public.vendor_conversations (conversation_type);
 create index if not exists vendor_messages_conversation_id_idx on public.vendor_messages (conversation_id, created_at asc);
+
+-- One vendor conversation per (user, payment_request)
+create unique index if not exists vendor_conversations_vendor_unique
+  on public.vendor_conversations (user_id, payment_request_id)
+  where conversation_type = 'vendor';
+
+-- One support conversation per user
+create unique index if not exists vendor_conversations_support_unique
+  on public.vendor_conversations (user_id)
+  where conversation_type = 'support';
 
 -- ============================================================
 -- Auto-update updated_at trigger
@@ -124,7 +136,7 @@ create policy "Users can update read status on own messages"
   );
 
 -- ============================================================
--- Realtime publication (required by AdminMessages + VendorChat)
+-- Realtime publication (required by AdminMessages + user Messages)
 -- ============================================================
 
 alter publication supabase_realtime add table public.vendor_conversations;

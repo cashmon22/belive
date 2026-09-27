@@ -27,8 +27,10 @@ import {
   removeUserBalance,
 } from "./routes/admin-balance";
 import {
+  adminCreateSupportConversation,
   createOrGetConversation,
   getConversation,
+  getOrCreateSupportConversation,
   listConversations,
   markConversationRead,
   sendMessage,
@@ -72,12 +74,14 @@ export function createServer() {
   app.patch("/api/admin/applications/:id/status", updateAdminApplicationStatus);
   app.patch("/api/admin/applications/:id/verification", updateAdminApplicationVerification);
 
-  // Vendor messaging
+  // Vendor + Support messaging
   app.post("/api/vendor-conversations", createOrGetConversation);
   app.get("/api/vendor-conversations", listConversations);
+  app.get("/api/vendor-conversations/support", getOrCreateSupportConversation);
   app.get("/api/vendor-conversations/:id", getConversation);
   app.post("/api/vendor-conversations/:id/messages", sendMessage);
   app.patch("/api/vendor-conversations/:id/read", markConversationRead);
+  app.post("/api/admin/support-conversations", adminCreateSupportConversation);
 
   return app;
 }

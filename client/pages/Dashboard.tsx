@@ -19,6 +19,7 @@ import {
   LogOut,
   Mail,
   Menu,
+  MessageSquare,
   MonitorCheck,
   Settings,
   ShieldCheck,
@@ -37,9 +38,12 @@ import ProfileSection from "@/components/dashboard/ProfileSection";
 import SupportSection from "@/components/dashboard/SupportSection";
 import DeviceNotRecognizedModal from "@/components/dashboard/DeviceNotRecognizedModal";
 import ApprovedDeviceInstructions from "@/components/dashboard/ApprovedDeviceInstructions";
+import MessagesSection from "@/components/dashboard/MessagesSection";
+import VendorChat from "@/components/dashboard/VendorChat";
 import { assignments, type Assignment } from "@/lib/assignments";
 import { useContributorEarnings } from "@/lib/earnings";
 import { useDeviceRequest } from "@/lib/use-device-request";
+import type { PaymentRequest } from "@shared/payment-requests";
 
 const sidebarItems: Array<{ label: string; icon: LucideIcon }> = [
   { label: "Dashboard", icon: LayoutDashboard },
@@ -47,6 +51,7 @@ const sidebarItems: Array<{ label: string; icon: LucideIcon }> = [
   { label: "My Tasks", icon: ClipboardList },
   { label: "Earnings", icon: CircleDollarSign },
   { label: "Profile", icon: UserRound },
+  { label: "Messages", icon: MessageSquare },
   { label: "Support", icon: LifeBuoy },
 ];
 
@@ -219,6 +224,7 @@ export default function Dashboard() {
   const [deviceNotRecognizedOpen, setDeviceNotRecognizedOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [chatRequest, setChatRequest] = useState<{ request: PaymentRequest; deviceName: string } | null>(null);
   const [today, setToday] = useState(() => new Date());
   const { availableBalance, pendingEarnings, totalWithdrawn, paymentGatewayConfigured } = useContributorEarnings(session);
   const { request: deviceRequest, isLoading: deviceRequestLoading } = useDeviceRequest();
@@ -442,7 +448,7 @@ export default function Dashboard() {
                   <section className={`rounded-xl border p-5 shadow-card sm:p-6 ${deviceRequest?.status === "Approved" ? "border-emerald-200 bg-emerald/[0.03]" : deviceRequest?.status === "Rejected" ? "border-red-200 bg-red/[0.03]" : deviceRequest?.status === "Under Review" ? "border-amber-200 bg-amber/[0.03]" : "border-orange/30 bg-orange/[0.045]"}`}>
                     <SectionHeading icon={MonitorCheck} eyebrow="Required setup" title="Device Authorization" action={deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status === "Rejected" ? "Rejected" : deviceRequest?.status === "Under Review" ? "Under Review" : "Action needed"} />
                     {deviceRequest?.status === "Approved" ? (
-                      <ApprovedDeviceInstructions deviceName={deviceRequest.deviceName} />
+                      <ApprovedDeviceInstructions deviceName={deviceRequest.deviceName} onMessageVendor={() => setChatRequest({ request: deviceRequest, deviceName: deviceRequest.deviceName })} />
                     ) : deviceRequest?.status === "Rejected" ? (
                       <>
                         <div className="mt-5 flex items-start gap-3">
@@ -544,6 +550,7 @@ export default function Dashboard() {
             {activeItem === "My Tasks" && <MyTasksSection />}
             {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} session={session} deviceVerified={deviceRequest?.status === "Approved"} onContactVendor={() => setTrustedVendorOpen(true)} />}
             {activeItem === "Profile" && <ProfileSection session={session} contributorId={contributorId} />}
+            {activeItem === "Messages" && <MessagesSection />}
             {activeItem === "Support" && <SupportSection />}
 
             <div className="mt-8 flex flex-col justify-between gap-3 border-t border-slate-200 pt-5 text-[10px] text-slate-400 sm:flex-row sm:items-center">
@@ -555,6 +562,13 @@ export default function Dashboard() {
       </div>
       {deviceNotRecognizedOpen && <DeviceNotRecognizedModal onClose={() => setDeviceNotRecognizedOpen(false)} onVerifyDevice={() => { setDeviceNotRecognizedOpen(false); navigate("/trusted-vendor"); }} />}
       {trustedVendorOpen && <TrustedVendorModal onClose={() => setTrustedVendorOpen(false)} />}
+      {chatRequest && (
+        <VendorChat
+          paymentRequest={chatRequest.request}
+          deviceName={chatRequest.deviceName}
+          onClose={() => setChatRequest(null)}
+        />
+      )}
     </div>
   );
 }

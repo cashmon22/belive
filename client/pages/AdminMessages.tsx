@@ -3,8 +3,10 @@ import {
   ArrowLeft,
   CheckCheck,
   Clock,
+  Headphones,
   LoaderCircle,
   MessageSquare,
+  Plus,
   RefreshCw,
   Search,
   Send,
@@ -13,12 +15,16 @@ import {
 } from "lucide-react";
 import type { VendorConversation, VendorMessage } from "@shared/vendor-messages";
 import {
+  adminCreateSupportConversation,
   getConversation,
   listConversations,
+  listAllUsers,
   markConversationRead,
   sendMessage,
 } from "@/lib/vendor-messages";
 import { supabase } from "@/lib/supabase";
+
+type TypeFilter = "all" | "support" | "vendor";
 
 const statusFilters = ["All", "Under Review", "Approved", "Rejected", "Completed"] as const;
 type StatusFilter = (typeof statusFilters)[number];
@@ -52,6 +58,10 @@ function RequestStatusBadge({ status }: { status: string }) {
   );
 }
 
+function ConversationIcon({ type }: { type: string }) {
+  return type === "support" ? <Headphones size={14} className="text-orange" /> : <ShieldCheck size={14} className="text-orange" />;
+}
+
 export default function AdminMessages() {
   const [conversations, setConversations] = useState<VendorConversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -62,9 +72,11 @@ export default function AdminMessages() {
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [submittedSearch, setSubmittedSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const [activeFilter, setActiveFilter] = useState<StatusFilter>("All");
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [newSupportOpen, setNewSupportOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = useCallback(async () => {
@@ -88,7 +100,6 @@ export default function AdminMessages() {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "vendor_messages" }, (payload) => {
         const newMessage = payload.new as { conversation_id: string; sender_role: string };
         if (newMessage.sender_role === "user") {
-          // A user sent a message — refresh conversation list and, if open, the chat
           void loadConversations();
           if (selectedId === newMessage.conversation_id) {
             void loadChat(newMessage.conversation_id);
@@ -109,7 +120,6 @@ export default function AdminMessages() {
       const data = await getConversation(id);
       setSelectedConversation(data);
       setMessages(data.messages);
-      // Mark as read since admin is viewing
       await markConversationRead(id);
       void loadConversations();
     } catch (loadError) {
@@ -134,15 +144,16 @@ export default function AdminMessages() {
   const filteredConversations = useMemo(() => {
     const query = submittedSearch.trim().toLowerCase();
     return conversations.filter((c) => {
+      const matchesType = typeFilter === "all" || c.conversationType === typeFilter;
       const matchesSearch = !query ||
         c.userName.toLowerCase().includes(query) ||
         c.userEmail.toLowerCase().includes(query) ||
-        c.deviceName.toLowerCase().includes(query) ||
-        c.referenceNumber.toLowerCase().includes(query);
+        (c.deviceName?.toLowerCase().includes(query) ?? false) ||
+        (c.referenceNumber?.toLowerCase().includes(query) ?? false);
       const matchesFilter = activeFilter === "All" || c.requestStatus === activeFilter;
-      return matchesSearch && matchesFilter;
+      return matchesType && matchesSearch && matchesFilter;
     });
-  }, [conversations, submittedSearch, activeFilter]);
+  }, [conversations, submittedSearch, typeFilter, activeFilter]);
 
   const handleSearch = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -166,6 +177,7 @@ export default function AdminMessages() {
   };
 
   const totalUnread = conversations.reduce((sum, c) => sum + c.adminUnreadCount, 0);
+  const showStatusFilters = typeFilter === "all" || typeFilter === "vendor";
 
   return (
     <section aria-labelledby="messages-heading">
@@ -173,7 +185,7 @@ export default function AdminMessages() {
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Communications</p>
           <h2 id="messages-heading" className="mt-2 text-[32px] font-extrabold tracking-[-0.04em] text-navy sm:text-[40px]">Messages</h2>
-          <p className="mt-3 max-w-[580px] text-sm leading-6 text-slate-500">Communicate with contributors about their device requests. All conversations are tied to a specific request.</p>
+          <p className="mt-3 max-w-[580px] text-sm leading-6 text-slate-500">Communicate with contributors about their device requests and provide support. All conversations are tied to a specific user.</p>
         </div>
         <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
           {totalUnread > 0 && <span className="inline-flex items-center gap-1.5 rounded-full bg-orange/10 px-3 py-1.5 text-orange"><MessageSquare size={14} /> {totalUnread} unread</span>}
@@ -192,21 +204,39 @@ export default function AdminMessages() {
       <div className="mt-7 grid gap-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_3px_16px_rgba(20,36,52,0.04)] lg:grid-cols-[360px_1fr]" style={{ height: "calc(100vh - 320px)", minHeight: "500px" }}>
         {/* Conversation list */}
         <div className={`flex flex-col border-r border-slate-200 ${selectedId ? "hidden lg:flex" : "flex"}`}>
-          {/* Search + filters */}
+          {/* Type tabs + search */}
           <div className="border-b border-slate-100 p-4">
-            <form className="relative" onSubmit={handleSearch}>
+            <div className="flex items-center gap-1.5">
+              {(["all", "support", "vendor"] as TypeFilter[]).map((tab) => (
+                <button key={tab} type="button" onClick={() => { setTypeFilter(tab); setActiveFilter("All"); }}
+                  className={`rounded-md px-3 py-1.5 text-[10px] font-bold capitalize transition ${typeFilter === tab ? "bg-navy text-white" : "border border-slate-200 bg-white text-slate-500 hover:border-navy/30 hover:text-navy"}`}>
+                  {tab === "all" ? "All" : tab === "support" ? "Support" : "Vendor"}
+                </button>
+              ))}
+              {typeFilter === "support" && (
+                <button type="button" onClick={() => setNewSupportOpen(true)}
+                  className="ml-auto inline-flex items-center gap-1 rounded-md bg-orange px-2.5 py-1.5 text-[10px] font-extrabold text-navy transition hover:bg-orange-light">
+                  <Plus size={12} /> New
+                </button>
+              )}
+            </div>
+
+            <form className="relative mt-3" onSubmit={handleSearch}>
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search conversations..."
                 className="h-10 w-full rounded-lg border border-slate-200 bg-[#fbfcfd] pl-9 pr-3 text-sm text-navy outline-none transition placeholder:text-slate-400 focus:border-orange focus:ring-2 focus:ring-orange/10" />
             </form>
-            <div className="mt-3 flex flex-wrap gap-1.5">
-              {statusFilters.map((filter) => (
-                <button key={filter} type="button" onClick={() => setActiveFilter(filter)}
-                  className={`rounded-md px-2.5 py-1.5 text-[10px] font-bold transition ${activeFilter === filter ? "bg-navy text-white" : "border border-slate-200 bg-white text-slate-500 hover:border-navy/30 hover:text-navy"}`}>
-                  {filter}
-                </button>
-              ))}
-            </div>
+
+            {showStatusFilters && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {statusFilters.map((filter) => (
+                  <button key={filter} type="button" onClick={() => setActiveFilter(filter)}
+                    className={`rounded-md px-2.5 py-1.5 text-[10px] font-bold transition ${activeFilter === filter ? "bg-navy text-white" : "border border-slate-200 bg-white text-slate-500 hover:border-navy/30 hover:text-navy"}`}>
+                    {filter}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* List */}
@@ -227,19 +257,26 @@ export default function AdminMessages() {
                   <li key={conv.id}>
                     <button type="button" onClick={() => setSelectedId(conv.id)}
                       className={`flex w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-[#fbfcfd] ${selectedId === conv.id ? "bg-orange/5" : ""}`}>
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy text-xs font-extrabold text-white">
-                        {conv.userName.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase()}
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy text-white">
+                        <ConversationIcon type={conv.conversationType} />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="truncate text-sm font-bold text-navy">{conv.userName}</p>
+                          <p className="truncate text-sm font-bold text-navy">
+                            {conv.conversationType === "support" ? "Support" : conv.deviceName ?? "Vendor"}
+                          </p>
                           <span className="shrink-0 text-[10px] font-semibold text-slate-400">{formatTime(conv.lastMessageAt)}</span>
                         </div>
-                        <p className="truncate text-xs text-slate-500">{conv.deviceName}</p>
+                        <p className="truncate text-xs text-slate-500">{conv.userName}</p>
                         <p className="mt-1 truncate text-xs text-slate-400">{conv.lastMessage ?? "No messages yet"}</p>
                         <div className="mt-1.5 flex items-center gap-2">
-                          <RequestStatusBadge status={conv.requestStatus} />
-                          <span className="text-[10px] font-semibold text-slate-400">{conv.referenceNumber}</span>
+                          {conv.conversationType === "vendor" && conv.requestStatus && <RequestStatusBadge status={conv.requestStatus} />}
+                          {conv.conversationType === "vendor" && conv.referenceNumber && (
+                            <span className="text-[10px] font-semibold text-slate-400">{conv.referenceNumber}</span>
+                          )}
+                          {conv.conversationType === "support" && (
+                            <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[9px] font-bold text-blue-600">Support</span>
+                          )}
                           {conv.adminUnreadCount > 0 && (
                             <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange px-1.5 text-[10px] font-extrabold text-navy">{conv.adminUnreadCount}</span>
                           )}
@@ -264,27 +301,31 @@ export default function AdminMessages() {
                     <button type="button" onClick={() => setSelectedId(null)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-navy lg:hidden" aria-label="Back to conversations">
                       <ArrowLeft size={18} />
                     </button>
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy text-xs font-extrabold text-white">
-                      {selectedConversation.userName.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase()}
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy text-white">
+                      <ConversationIcon type={selectedConversation.conversationType} />
                     </span>
                     <div>
-                      <p className="text-sm font-extrabold text-navy">{selectedConversation.userName}</p>
-                      <p className="text-xs text-slate-500">{selectedConversation.userEmail}</p>
+                      <p className="text-sm font-extrabold text-navy">
+                        {selectedConversation.conversationType === "support" ? "Support" : (selectedConversation.deviceName ?? "Vendor")}
+                      </p>
+                      <p className="text-xs text-slate-500">{selectedConversation.userName} · {selectedConversation.userEmail}</p>
                     </div>
                   </div>
                   <button type="button" onClick={() => void loadConversations()} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-orange" aria-label="Refresh">
                     <RefreshCw size={15} />
                   </button>
                 </div>
-                {/* Device context header */}
-                <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-2.5">
-                  <ShieldCheck size={14} className="text-orange" />
-                  <span className="text-xs font-bold text-navy">{selectedConversation.deviceName}</span>
-                  <span className="text-xs text-slate-400">{selectedConversation.deviceModel}</span>
-                  <span className="text-slate-300">·</span>
-                  <span className="text-[10px] font-extrabold text-slate-500">{selectedConversation.referenceNumber}</span>
-                  <RequestStatusBadge status={selectedConversation.requestStatus} />
-                </div>
+                {/* Device context header (vendor only) */}
+                {selectedConversation.conversationType === "vendor" && selectedConversation.deviceName && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-2.5">
+                    <ShieldCheck size={14} className="text-orange" />
+                    <span className="text-xs font-bold text-navy">{selectedConversation.deviceName}</span>
+                    <span className="text-xs text-slate-400">{selectedConversation.deviceModel}</span>
+                    <span className="text-slate-300">·</span>
+                    <span className="text-[10px] font-extrabold text-slate-500">{selectedConversation.referenceNumber}</span>
+                    {selectedConversation.requestStatus && <RequestStatusBadge status={selectedConversation.requestStatus} />}
+                  </div>
+                )}
               </div>
 
               {/* Messages */}
@@ -339,6 +380,129 @@ export default function AdminMessages() {
           )}
         </div>
       </div>
+
+      {newSupportOpen && (
+        <NewSupportModal
+          existingConversations={conversations}
+          onClose={() => setNewSupportOpen(false)}
+          onCreated={(conv) => {
+            setNewSupportOpen(false);
+            void loadConversations().then(() => setSelectedId(conv.id));
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+function NewSupportModal({
+  existingConversations,
+  onClose,
+  onCreated,
+}: {
+  existingConversations: VendorConversation[];
+  onClose: () => void;
+  onCreated: (conv: VendorConversation) => void;
+}) {
+  const [users, setUsers] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [isCreating, setIsCreating] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        const data = await listAllUsers();
+        if (isMounted) setUsers(data.users ?? []);
+      } catch (loadError) {
+        if (isMounted) setError(loadError instanceof Error ? loadError.message : "Unable to load users.");
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, []);
+
+  const supportUserIds = useMemo(
+    () => new Set(existingConversations.filter((c) => c.conversationType === "support").map((c) => c.userId)),
+    [existingConversations],
+  );
+
+  const filteredUsers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return users.filter(
+      (u) => !supportUserIds.has(u.id) && (!query || u.name.toLowerCase().includes(query) || u.email.toLowerCase().includes(query)),
+    );
+  }, [users, supportUserIds, search]);
+
+  const handleCreate = async (userId: string) => {
+    setIsCreating(userId);
+    setError("");
+    try {
+      const conv = await adminCreateSupportConversation(userId);
+      onCreated(conv);
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Unable to create conversation.");
+    } finally {
+      setIsCreating(null);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-navy/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="New support conversation"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="flex max-h-[80vh] w-full max-w-[480px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 p-4">
+          <div className="flex items-center gap-2">
+            <Headphones size={18} className="text-orange" />
+            <h3 className="text-sm font-extrabold text-navy">New Support Conversation</h3>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-navy" aria-label="Close">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="border-b border-slate-100 p-4">
+          <div className="relative">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search users..."
+              className="h-10 w-full rounded-lg border border-slate-200 bg-[#fbfcfd] pl-9 pr-3 text-sm text-navy outline-none transition placeholder:text-slate-400 focus:border-orange focus:ring-2 focus:ring-orange/10" />
+          </div>
+        </div>
+
+        {error && <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700">{error}</div>}
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {isLoading ? (
+            <div className="flex items-center justify-center gap-2 py-10 text-sm font-semibold text-slate-500">
+              <LoaderCircle size={16} className="animate-spin text-orange" /> Loading users...
+            </div>
+          ) : filteredUsers.length === 0 ? (
+            <div className="px-5 py-10 text-center">
+              <MessageSquare size={24} className="mx-auto text-slate-300" />
+              <p className="mt-3 text-sm font-bold text-navy">No users found</p>
+              <p className="mt-1 text-xs text-slate-500">All users already have a support conversation, or no users match your search.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-slate-100">
+              {filteredUsers.map((user) => (
+                <li key={user.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-navy">{user.name}</p>
+                    <p className="truncate text-xs text-slate-500">{user.email}</p>
+                  </div>
+                  <button type="button" onClick={() => handleCreate(user.id)} disabled={isCreating === user.id}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-orange px-3 py-2 text-[10px] font-extrabold text-navy transition hover:bg-orange-light disabled:opacity-50">
+                    {isCreating === user.id ? <LoaderCircle size={12} className="animate-spin" /> : <Plus size={12} />} Start
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }

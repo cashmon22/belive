@@ -1,16 +1,18 @@
 export type ConversationStatus = "active" | "closed";
+export type ConversationType = "vendor" | "support";
 
 export type VendorConversation = {
   id: string;
   userId: string;
-  paymentRequestId: string;
-  deviceId: string;
-  deviceName: string;
-  deviceModel: string;
-  referenceNumber: string;
+  conversationType: ConversationType;
+  paymentRequestId: string | null;
+  deviceId: string | null;
+  deviceName: string | null;
+  deviceModel: string | null;
+  referenceNumber: string | null;
   userName: string;
   userEmail: string;
-  requestStatus: string;
+  requestStatus: string | null;
   status: ConversationStatus;
   lastMessage: string | null;
   lastMessageAt: string | null;

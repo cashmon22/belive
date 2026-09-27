@@ -37,14 +37,15 @@ function mapConversation(row: any): VendorConversation {
   return {
     id: row.id,
     userId: row.user_id,
-    paymentRequestId: row.payment_request_id,
-    deviceId: row.device_id,
-    deviceName: row.device_name,
-    deviceModel: row.device_model,
-    referenceNumber: row.reference_number,
+    conversationType: row.conversation_type ?? "vendor",
+    paymentRequestId: row.payment_request_id ?? null,
+    deviceId: row.device_id ?? null,
+    deviceName: row.device_name ?? null,
+    deviceModel: row.device_model ?? null,
+    referenceNumber: row.reference_number ?? null,
     userName: row.user_name,
     userEmail: row.user_email,
-    requestStatus: row.request_status,
+    requestStatus: row.request_status ?? null,
     status: row.status,
     lastMessage: row.last_message ?? null,
     lastMessageAt: row.last_message_at ?? null,
@@ -68,14 +69,14 @@ function mapMessage(row: any): VendorMessage {
   };
 }
 
-const conversationSelect = "id, user_id, payment_request_id, device_id, device_name, device_model, reference_number, user_name, user_email, request_status, status, last_message, last_message_at, user_unread_count, admin_unread_count, created_at, updated_at";
+const conversationSelect = "id, user_id, conversation_type, payment_request_id, device_id, device_name, device_model, reference_number, user_name, user_email, request_status, status, last_message, last_message_at, user_unread_count, admin_unread_count, created_at, updated_at";
 const messageSelect = "id, conversation_id, sender_id, sender_role, body, read_at, created_at";
 
 function referenceNumber(id: string) {
   return `AMZ-${id.replace(/-/g, "").slice(0, 12).toUpperCase()}`;
 }
 
-// POST /api/vendor-conversations — user creates/gets a conversation for a payment request
+// POST /api/vendor-conversations — user creates/gets a vendor conversation for a payment request
 export const createOrGetConversation: RequestHandler = async (req, res) => {
   const context = await getAuthenticatedUser(req, res);
   if (!context) return;
@@ -104,12 +105,19 @@ export const createOrGetConversation: RequestHandler = async (req, res) => {
     return;
   }
 
-  // Check for existing conversation (unique constraint on user_id + payment_request_id)
+  // Enforce approved-device requirement on the backend
+  if (paymentRequest.status !== "Approved") {
+    res.status(403).json({ error: "Your device request must be approved before you can message the vendor about this device." });
+    return;
+  }
+
+  // Check for existing conversation (unique constraint on user_id + payment_request_id for vendor type)
   const { data: existing } = await authSupabase
     .from("vendor_conversations")
     .select(conversationSelect)
     .eq("user_id", user.id)
     .eq("payment_request_id", paymentRequestId)
+    .eq("conversation_type", "vendor")
     .maybeSingle();
 
   if (existing) {
@@ -122,6 +130,7 @@ export const createOrGetConversation: RequestHandler = async (req, res) => {
     .from("vendor_conversations")
     .insert({
       user_id: user.id,
+      conversation_type: "vendor",
       payment_request_id: paymentRequestId,
       device_id: paymentRequest.device_id,
       device_name: paymentRequest.device_name,
@@ -142,6 +151,7 @@ export const createOrGetConversation: RequestHandler = async (req, res) => {
         .select(conversationSelect)
         .eq("user_id", user.id)
         .eq("payment_request_id", paymentRequestId)
+        .eq("conversation_type", "vendor")
         .maybeSingle();
       if (retry) {
         res.status(200).json(mapConversation(retry));
@@ -156,7 +166,7 @@ export const createOrGetConversation: RequestHandler = async (req, res) => {
   res.status(201).json(mapConversation(data));
 };
 
-// GET /api/vendor-conversations — admin: all, user: own
+// GET /api/vendor-conversations — admin: all, user: own. Optional ?type=vendor|support filter
 export const listConversations: RequestHandler = async (req, res) => {
   const context = await getAuthenticatedUser(req, res);
   if (!context) return;
@@ -169,6 +179,11 @@ export const listConversations: RequestHandler = async (req, res) => {
 
   if (!isAdmin(user)) {
     query = query.eq("user_id", user.id);
+  }
+
+  const typeFilter = typeof req.query.type === "string" ? req.query.type : "";
+  if (typeFilter === "vendor" || typeFilter === "support") {
+    query = query.eq("conversation_type", typeFilter);
   }
 
   const { data, error } = await query;
@@ -238,7 +253,7 @@ export const sendMessage: RequestHandler = async (req, res) => {
 
   const { data: conversation, error: convError } = await authSupabase
     .from("vendor_conversations")
-    .select("id, user_id")
+    .select("id, user_id, user_unread_count, admin_unread_count")
     .eq("id", req.params.id)
     .maybeSingle();
 
@@ -276,12 +291,16 @@ export const sendMessage: RequestHandler = async (req, res) => {
   // Update conversation: last message, unread count for the other party
   const serviceSupabase = createServiceRoleSupabaseClient();
   const unreadField = admin ? "user_unread_count" : "admin_unread_count";
+  const currentCount = admin
+    ? (conversation as { user_unread_count?: number }).user_unread_count ?? 0
+    : (conversation as { admin_unread_count?: number }).admin_unread_count ?? 0;
+
   const { error: updateError } = await serviceSupabase
     .from("vendor_conversations")
     .update({
       last_message: body.trim(),
       last_message_at: new Date().toISOString(),
-      [unreadField]: (admin ? (conversation as { user_unread_count?: number }).user_unread_count : (conversation as { admin_unread_count?: number }).admin_unread_count) ?? 0 + 1,
+      [unreadField]: currentCount + 1,
     })
     .eq("id", req.params.id);
 
@@ -341,4 +360,134 @@ export const markConversationRead: RequestHandler = async (req, res) => {
   }
 
   res.json({ success: true });
+};
+
+// GET /api/vendor-conversations/support — get or auto-create the user's support conversation
+export const getOrCreateSupportConversation: RequestHandler = async (req, res) => {
+  const context = await getAuthenticatedUser(req, res);
+  if (!context) return;
+  const { user, supabase: authSupabase } = context;
+
+  // Check for existing support conversation
+  const { data: existing } = await authSupabase
+    .from("vendor_conversations")
+    .select(conversationSelect)
+    .eq("user_id", user.id)
+    .eq("conversation_type", "support")
+    .maybeSingle();
+
+  if (existing) {
+    res.json(mapConversation(existing));
+    return;
+  }
+
+  const fullName = (user.user_metadata?.full_name as string) || user.email?.split("@")[0] || "User";
+  const email = user.email ?? "";
+
+  // Create new support conversation
+  const { data, error } = await authSupabase
+    .from("vendor_conversations")
+    .insert({
+      user_id: user.id,
+      conversation_type: "support",
+      user_name: fullName,
+      user_email: email,
+    })
+    .select(conversationSelect)
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      const { data: retry } = await authSupabase
+        .from("vendor_conversations")
+        .select(conversationSelect)
+        .eq("user_id", user.id)
+        .eq("conversation_type", "support")
+        .maybeSingle();
+      if (retry) {
+        res.json(mapConversation(retry));
+        return;
+      }
+    }
+    console.error("Failed to create support conversation", { message: error.message, code: error.code });
+    res.status(500).json({ error: "Unable to create support conversation." });
+    return;
+  }
+
+  res.status(201).json(mapConversation(data));
+};
+
+// POST /api/admin/support-conversations — admin creates a support conversation for a user
+export const adminCreateSupportConversation: RequestHandler = async (req, res) => {
+  const context = await getAuthenticatedUser(req, res);
+  if (!context) return;
+  const { user } = context;
+
+  if (!isAdmin(user)) {
+    res.status(403).json({ error: "Administrator access required." });
+    return;
+  }
+
+  const { userId } = req.body as { userId?: string };
+  if (!userId) {
+    res.status(400).json({ error: "User ID is required." });
+    return;
+  }
+
+  const serviceSupabase = createServiceRoleSupabaseClient();
+
+  // Check for existing support conversation
+  const { data: existing } = await serviceSupabase
+    .from("vendor_conversations")
+    .select(conversationSelect)
+    .eq("user_id", userId)
+    .eq("conversation_type", "support")
+    .maybeSingle();
+
+  if (existing) {
+    res.json(mapConversation(existing));
+    return;
+  }
+
+  // Fetch user info
+  const { data: userInfo, error: userError } = await serviceSupabase.auth.admin.getUserById(userId);
+  if (userError || !userInfo.user) {
+    res.status(404).json({ error: "User not found." });
+    return;
+  }
+
+  const targetUser = userInfo.user;
+  const fullName = (targetUser.user_metadata?.full_name as string) || targetUser.email?.split("@")[0] || "User";
+  const email = targetUser.email ?? "";
+
+  const { data, error } = await serviceSupabase
+    .from("vendor_conversations")
+    .insert({
+      user_id: userId,
+      conversation_type: "support",
+      user_name: fullName,
+      user_email: email,
+    })
+    .select(conversationSelect)
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      const { data: retry } = await serviceSupabase
+        .from("vendor_conversations")
+        .select(conversationSelect)
+        .eq("user_id", userId)
+        .eq("conversation_type", "support")
+        .maybeSingle();
+      if (retry) {
+        res.json(mapConversation(retry));
+        return;
+      }
+    }
+    console.error("Failed to create support conversation", { message: error.message, code: error.code });
+    res.status(500).json({ error: "Unable to create support conversation." });
+    return;
+  }
+
+  res.status(201).json(mapConversation(data));
 };

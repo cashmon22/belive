@@ -48,7 +48,7 @@ const sectionDetails: Record<string, { eyebrow: string; title: string; descripti
   messages: {
     eyebrow: "Communications",
     title: "Messages",
-    description: "Manage conversations with contributors about their device requests.",
+    description: "Manage support and vendor conversations with contributors.",
   },
   devices: {
     eyebrow: "Inventory",

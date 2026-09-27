@@ -240,11 +240,7 @@ function formatPrice(device: VendorDevice) {
   }).format(device.price);
 }
 
-function contactSellerUrl(device: VendorDevice) {
-  const message = `Hello, I'm interested in the ${device.name} listed on your website. Is this device still available? Please let me know the availability and next steps. Thank you.`;
 
-  return `https://t.me/AuthorizedDeviceDesk?text=${encodeURIComponent(message)}`;
-}
 
 export function AuthenticatedVendorHeader({
   displayName,
@@ -424,51 +420,47 @@ function DeviceCard({
           </button>
         </div>
 
-        {existingRequest?.status === "Under Review" || existingRequest?.status === "Approved" ? (
+        {existingRequest?.status === "Approved" || existingRequest?.status === "Completed" ? (
           <div className="mt-5 space-y-2">
-            <div className={`flex items-center justify-center gap-2 rounded-md border px-3 py-3 text-xs font-extrabold ${existingRequest.status === "Approved" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
-              {existingRequest.status === "Approved" ? <Check size={14} /> : <Clock3 size={14} />}
+            <div className="flex items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs font-extrabold text-emerald-700">
+              <Check size={14} />
               {existingRequest.status}
             </div>
-            {existingRequest.status === "Approved" && (
-              <button
-                type="button"
-                onClick={() => onMessageVendor(existingRequest)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-3 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:-translate-y-0.5 hover:bg-orange-light"
-              >
-                <MessageSquare size={14} />
-                Message Vendor
-              </button>
-            )}
-            <a
-              href={contactSellerUrl(device)}
-              target="_blank"
-              rel="noreferrer"
-              className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-3 text-xs font-extrabold transition ${existingRequest.status === "Approved" ? "border border-slate-200 text-navy hover:border-orange hover:text-orange" : "bg-orange text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] hover:-translate-y-0.5 hover:bg-orange-light"}`}
+            <button
+              type="button"
+              onClick={() => onMessageVendor(existingRequest)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-3 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:-translate-y-0.5 hover:bg-orange-light"
             >
-              Contact Seller
-            </a>
+              <MessageSquare size={14} />
+              Message Vendor
+            </button>
+          </div>
+        ) : existingRequest?.status === "Under Review" || existingRequest?.status === "Rejected" ? (
+          <div className="mt-5 space-y-2">
+            <div className={`flex items-center justify-center gap-2 rounded-md border px-3 py-3 text-xs font-extrabold ${existingRequest.status === "Under Review" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+              {existingRequest.status === "Under Review" ? <Clock3 size={14} /> : <X size={14} />}
+              {existingRequest.status}
+            </div>
+            <div className="rounded-md border border-slate-200 bg-[#fbfcfd] px-3 py-3 text-center">
+              <p className="text-[10px] font-extrabold text-slate-600">Vendor Messaging Unavailable</p>
+              <p className="mt-1 text-[10px] leading-4 text-slate-400">Your device request must be approved before you can message the vendor about this device.</p>
+            </div>
           </div>
         ) : (
-          <div className="mt-5 grid grid-cols-2 gap-2">
+          <div className="mt-5 space-y-2">
             <Link
               to={`/trusted-vendor/request-payment?deviceId=${encodeURIComponent(
                 device.id
               )}`}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-orange px-3 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:-translate-y-0.5 hover:bg-orange-light"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-3 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:-translate-y-0.5 hover:bg-orange-light"
             >
               <CreditCard size={14} />
               Request Payment
             </Link>
-
-            <a
-              href={contactSellerUrl(device)}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center rounded-md border border-slate-200 px-3 py-3 text-xs font-extrabold text-navy transition hover:border-orange hover:text-orange"
-            >
-              Contact Seller
-            </a>
+            <div className="rounded-md border border-slate-200 bg-[#fbfcfd] px-3 py-3 text-center">
+              <p className="text-[10px] font-extrabold text-slate-600">Vendor Messaging Unavailable</p>
+              <p className="mt-1 text-[10px] leading-4 text-slate-400">Your device request must be approved before you can message the vendor about this device.</p>
+            </div>
           </div>
         )}
       </div>
@@ -611,51 +603,47 @@ function DeviceDetailsModal({
               </span>
             </div>
 
-            {existingRequest?.status === "Under Review" || existingRequest?.status === "Approved" ? (
+            {existingRequest?.status === "Approved" || existingRequest?.status === "Completed" ? (
               <div className="mt-6 space-y-3">
-                <div className={`flex items-center justify-center gap-2 rounded-md border px-4 py-3.5 text-xs font-extrabold ${existingRequest.status === "Approved" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
-                  {existingRequest.status === "Approved" ? <Check size={14} /> : <Clock3 size={14} />}
+                <div className="flex items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-xs font-extrabold text-emerald-700">
+                  <Check size={14} />
                   {existingRequest.status}
                 </div>
-                {existingRequest.status === "Approved" && (
-                  <button
-                    type="button"
-                    onClick={() => onMessageVendor(existingRequest)}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-4 py-3.5 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:bg-orange-light"
-                  >
-                    <MessageSquare size={15} />
-                    Message Vendor
-                  </button>
-                )}
-                <a
-                  href={contactSellerUrl(device)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-3.5 text-xs font-extrabold transition ${existingRequest.status === "Approved" ? "border border-slate-200 text-navy hover:border-orange hover:text-orange" : "bg-orange text-navy hover:bg-orange-light"}`}
+                <button
+                  type="button"
+                  onClick={() => onMessageVendor(existingRequest)}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-4 py-3.5 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:bg-orange-light"
                 >
-                  Contact Seller
-                </a>
+                  <MessageSquare size={15} />
+                  Message Vendor
+                </button>
+              </div>
+            ) : existingRequest?.status === "Under Review" || existingRequest?.status === "Rejected" ? (
+              <div className="mt-6 space-y-3">
+                <div className={`flex items-center justify-center gap-2 rounded-md border px-4 py-3.5 text-xs font-extrabold ${existingRequest.status === "Under Review" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+                  {existingRequest.status === "Under Review" ? <Clock3 size={14} /> : <X size={14} />}
+                  {existingRequest.status}
+                </div>
+                <div className="rounded-md border border-slate-200 bg-[#fbfcfd] px-4 py-3.5 text-center">
+                  <p className="text-[10px] font-extrabold text-slate-600">Vendor Messaging Unavailable</p>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-400">Your device request must be approved before you can message the vendor about this device.</p>
+                </div>
               </div>
             ) : (
-              <div className="mt-6 grid grid-cols-2 gap-3">
+              <div className="mt-6 space-y-3">
                 <Link
                   to={`/trusted-vendor/request-payment?deviceId=${encodeURIComponent(
                     device.id
                   )}`}
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-orange px-4 py-3.5 text-xs font-extrabold text-navy transition hover:bg-orange-light"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-4 py-3.5 text-xs font-extrabold text-navy transition hover:bg-orange-light"
                 >
                   <CreditCard size={15} />
                   Request Payment
                 </Link>
-
-                <a
-                  href={contactSellerUrl(device)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center rounded-md border border-slate-200 px-4 py-3.5 text-xs font-extrabold text-navy transition hover:border-orange hover:text-orange"
-                >
-                  Contact Seller
-                </a>
+                <div className="rounded-md border border-slate-200 bg-[#fbfcfd] px-4 py-3.5 text-center">
+                  <p className="text-[10px] font-extrabold text-slate-600">Vendor Messaging Unavailable</p>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-400">Your device request must be approved before you can message the vendor about this device.</p>
+                </div>
               </div>
             )}
 
@@ -1044,8 +1032,9 @@ export default function TrustedVendor() {
                 </h2>
 
                 <p className="mt-2 max-w-[540px] text-sm text-white/60">
-                  If you need help choosing a device, use Contact Seller on any
-                  listing to ask about availability, delivery, and payment.
+                  If you need help choosing a device, submit a payment request
+                  for your selected device. Once approved, you can message the
+                  vendor directly.
                 </p>
               </div>
 
