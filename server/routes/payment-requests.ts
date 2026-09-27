@@ -117,6 +117,23 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
     return;
   }
 
+  // Prevent duplicate active requests for the same device.
+  // "Active" = Under Review or Approved. Rejected requests allow re-submission.
+  const { data: existingActive } = await authenticatedSupabase
+    .from("payment_requests")
+    .select(baseSelect)
+    .eq("user_id", user.id)
+    .eq("device_id", body.deviceId)
+    .in("status", ["Under Review", "Approved"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingActive) {
+    res.status(200).json(mapRequest(existingActive));
+    return;
+  }
+
   const staticDevice = vendorDevices.find((item) => item.id === body.deviceId);
   let device: Pick<VendorDevice, "id" | "name" | "model" | "price" | "currency"> | undefined = staticDevice;
 

@@ -20,9 +20,12 @@ import {
   ShieldCheck,
   UserRound,
   X,
+  Clock3,
 } from "lucide-react";
 import { vendorDevices, type DeviceCategory, type VendorDevice } from "@/vendor-data";
 import { supabase } from "@/lib/supabase";
+import { listPaymentRequests } from "@/lib/payment-requests";
+import type { PaymentRequest } from "@shared/payment-requests";
 
 type AvailableDeviceRecord = {
   id: string;
@@ -327,9 +330,11 @@ export function AuthenticatedVendorHeader({
 
 function DeviceCard({
   device,
+  existingRequest,
   onOpen,
 }: {
   device: VendorDevice;
+  existingRequest?: PaymentRequest;
   onOpen: () => void;
 }) {
   return (
@@ -415,26 +420,43 @@ function DeviceCard({
           </button>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2">
-          <Link
-            to={`/trusted-vendor/request-payment?deviceId=${encodeURIComponent(
-              device.id
-            )}`}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-orange px-3 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:-translate-y-0.5 hover:bg-orange-light"
-          >
-            <CreditCard size={14} />
-            Request Payment
-          </Link>
+        {existingRequest?.status === "Under Review" || existingRequest?.status === "Approved" ? (
+          <div className="mt-5 space-y-2">
+            <div className={`flex items-center justify-center gap-2 rounded-md border px-3 py-3 text-xs font-extrabold ${existingRequest.status === "Approved" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+              {existingRequest.status === "Approved" ? <Check size={14} /> : <Clock3 size={14} />}
+              {existingRequest.status}
+            </div>
+            <a
+              href={contactSellerUrl(device)}
+              target="_blank"
+              rel="noreferrer"
+              className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-3 py-3 text-xs font-extrabold transition ${existingRequest.status === "Approved" ? "bg-orange text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] hover:-translate-y-0.5 hover:bg-orange-light" : "border border-slate-200 text-navy hover:border-orange hover:text-orange"}`}
+            >
+              Contact Seller
+            </a>
+          </div>
+        ) : (
+          <div className="mt-5 grid grid-cols-2 gap-2">
+            <Link
+              to={`/trusted-vendor/request-payment?deviceId=${encodeURIComponent(
+                device.id
+              )}`}
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-orange px-3 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:-translate-y-0.5 hover:bg-orange-light"
+            >
+              <CreditCard size={14} />
+              Request Payment
+            </Link>
 
-          <a
-            href={contactSellerUrl(device)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center justify-center rounded-md border border-slate-200 px-3 py-3 text-xs font-extrabold text-navy transition hover:border-orange hover:text-orange"
-          >
-            Contact Seller
-          </a>
-        </div>
+            <a
+              href={contactSellerUrl(device)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center rounded-md border border-slate-200 px-3 py-3 text-xs font-extrabold text-navy transition hover:border-orange hover:text-orange"
+            >
+              Contact Seller
+            </a>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -442,9 +464,11 @@ function DeviceCard({
 
 function DeviceDetailsModal({
   device,
+  existingRequest,
   onClose,
 }: {
   device: VendorDevice;
+  existingRequest?: PaymentRequest;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -571,26 +595,43 @@ function DeviceDetailsModal({
               </span>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <Link
-                to={`/trusted-vendor/request-payment?deviceId=${encodeURIComponent(
-                  device.id
-                )}`}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-orange px-4 py-3.5 text-xs font-extrabold text-navy transition hover:bg-orange-light"
-              >
-                <CreditCard size={15} />
-                Request Payment
-              </Link>
+            {existingRequest?.status === "Under Review" || existingRequest?.status === "Approved" ? (
+              <div className="mt-6 space-y-3">
+                <div className={`flex items-center justify-center gap-2 rounded-md border px-4 py-3.5 text-xs font-extrabold ${existingRequest.status === "Approved" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                  {existingRequest.status === "Approved" ? <Check size={14} /> : <Clock3 size={14} />}
+                  {existingRequest.status}
+                </div>
+                <a
+                  href={contactSellerUrl(device)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className={`inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-3.5 text-xs font-extrabold transition ${existingRequest.status === "Approved" ? "bg-orange text-navy hover:bg-orange-light" : "border border-slate-200 text-navy hover:border-orange hover:text-orange"}`}
+                >
+                  Contact Seller
+                </a>
+              </div>
+            ) : (
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <Link
+                  to={`/trusted-vendor/request-payment?deviceId=${encodeURIComponent(
+                    device.id
+                  )}`}
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-orange px-4 py-3.5 text-xs font-extrabold text-navy transition hover:bg-orange-light"
+                >
+                  <CreditCard size={15} />
+                  Request Payment
+                </Link>
 
-              <a
-                href={contactSellerUrl(device)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center rounded-md border border-slate-200 px-4 py-3.5 text-xs font-extrabold text-navy transition hover:border-orange hover:text-orange"
-              >
-                Contact Seller
-              </a>
-            </div>
+                <a
+                  href={contactSellerUrl(device)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-md border border-slate-200 px-4 py-3.5 text-xs font-extrabold text-navy transition hover:border-orange hover:text-orange"
+                >
+                  Contact Seller
+                </a>
+              </div>
+            )}
 
             <div className="mt-5 flex items-start gap-2 rounded-md bg-[#f8f9fa] p-3 text-[10px] leading-4 text-slate-500">
               <Check
@@ -621,6 +662,7 @@ export default function TrustedVendor() {
   const [additionalDevices, setAdditionalDevices] =
     useState<VendorDevice[]>([]);
   const [inventoryError, setInventoryError] = useState("");
+  const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
 
@@ -667,10 +709,33 @@ export default function TrustedVendor() {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+    void listPaymentRequests()
+      .then((requests) => {
+        if (isMounted) setPaymentRequests(requests);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const devices = useMemo(
     () => [...vendorDevices, ...additionalDevices],
     [additionalDevices]
   );
+
+  const requestByDeviceId = useMemo(() => {
+    const map = new Map<string, PaymentRequest>();
+    for (const req of paymentRequests) {
+      const existing = map.get(req.deviceId);
+      if (!existing || new Date(req.createdAt) > new Date(existing.createdAt)) {
+        map.set(req.deviceId, req);
+      }
+    }
+    return map;
+  }, [paymentRequests]);
 
   const handleLogout = async () => {
     if (isSigningOut) return;
@@ -871,6 +936,7 @@ export default function TrustedVendor() {
                     <DeviceCard
                       key={device.id}
                       device={device}
+                      existingRequest={requestByDeviceId.get(device.id)}
                       onOpen={() => setSelectedDevice(device)}
                     />
                   ))}
@@ -970,6 +1036,7 @@ export default function TrustedVendor() {
       {selectedDevice && (
         <DeviceDetailsModal
           device={selectedDevice}
+          existingRequest={requestByDeviceId.get(selectedDevice.id)}
           onClose={() => setSelectedDevice(null)}
         />
       )}

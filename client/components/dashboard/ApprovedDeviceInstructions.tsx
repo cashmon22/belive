@@ -7,6 +7,7 @@ import {
   Wallet,
   MessageSquare,
   Info,
+  Mail,
 } from "lucide-react";
 
 type ApprovedDeviceInstructionsProps = {
@@ -55,6 +56,10 @@ const depositSteps = [
 export default function ApprovedDeviceInstructions({
   deviceName,
 }: ApprovedDeviceInstructionsProps) {
+  const contactSellerUrl = `https://t.me/AuthorizedDeviceDesk?text=${encodeURIComponent(
+    `Hello, my device request for the ${deviceName} has been approved. I'd like to proceed with payment for this device. Please let me know the next steps. Thank you.`,
+  )}`;
+
   return (
     <div className="mt-5 space-y-5">
       {/* Approval header */}
@@ -140,6 +145,16 @@ export default function ApprovedDeviceInstructions({
           </p>
         </div>
       </div>
+
+      <a
+        href={contactSellerUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-5 py-3.5 text-sm font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:-translate-y-0.5 hover:bg-orange-light"
+      >
+        <Mail size={16} />
+        Contact Seller
+      </a>
     </div>
   );
 }
