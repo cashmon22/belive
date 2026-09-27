@@ -25,17 +25,25 @@ import {
   UserRound,
   WalletCards,
   X,
+  ClipboardList,
+  LifeBuoy,
 } from "lucide-react";
+
+import AssignmentsSection from "@/components/dashboard/AssignmentsSection";
+import MyTasksSection from "@/components/dashboard/MyTasksSection";
+import EarningsSection from "@/components/dashboard/EarningsSection";
+import ProfileSection from "@/components/dashboard/ProfileSection";
+import SupportSection from "@/components/dashboard/SupportSection";
+import DeviceNotRecognizedModal from "@/components/dashboard/DeviceNotRecognizedModal";
+import type { Assignment } from "@/lib/assignments";
 
 const sidebarItems: Array<{ label: string; icon: LucideIcon }> = [
   { label: "Dashboard", icon: LayoutDashboard },
   { label: "Assignments", icon: BriefcaseBusiness },
+  { label: "My Tasks", icon: ClipboardList },
   { label: "Earnings", icon: CircleDollarSign },
-  { label: "Payments", icon: CreditCard },
   { label: "Profile", icon: UserRound },
-  { label: "Device Authorization", icon: MonitorCheck },
-  { label: "Help Center", icon: HelpCircle },
-  { label: "Settings", icon: Settings },
+  { label: "Support", icon: LifeBuoy },
 ];
 
 const onboardingItems = [
@@ -48,7 +56,7 @@ const onboardingItems = [
 
 const contributorId = "CTR-162-717";
 const contributorName = "Contributor";
-const availableAssignments = 10;
+const availableAssignments = 12;
 const paymentGatewayConfigured = false;
 
 function DashboardLogo({ dark = false }: { dark?: boolean }) {
@@ -76,7 +84,7 @@ function SidebarContent({ activeItem, onSelect }: { activeItem: string; onSelect
       <nav className="px-3 py-4" aria-label="Dashboard navigation">
         <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace</p>
         <div className="space-y-1">
-          {sidebarItems.slice(0, 6).map(({ label, icon: Icon }) => {
+          {sidebarItems.map(({ label, icon: Icon }) => {
             const isActive = activeItem === label;
             return (
               <button
@@ -89,28 +97,6 @@ function SidebarContent({ activeItem, onSelect }: { activeItem: string; onSelect
                 <Icon size={16} strokeWidth={isActive ? 2.2 : 1.8} />
                 <span className="min-w-0 flex-1">{label}</span>
                 {label === "Assignments" && <span title={`${availableAssignments} assignments available`} aria-label={`${availableAssignments} assignments available`} role="img" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange text-[10px] font-extrabold text-navy">{availableAssignments}</span>}
-                {label === "Payments" && !paymentGatewayConfigured && <span title="Please set up your payment gateway" aria-label="Please set up your payment gateway" className="ml-1 flex max-w-[112px] shrink-0 items-center gap-1.5 rounded-full border border-orange/30 bg-orange/10 px-2 py-1 text-[9px] font-bold leading-3 text-orange"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange shadow-[0_0_8px_rgba(255,153,0,0.8)] motion-safe:animate-pulse" /><span>Please set up your payment gateway</span></span>}
-                {isActive && <ChevronRight size={14} />}
-              </button>
-            );
-          })}
-        </div>
-        <p className="px-3 pb-2 pt-7 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Support</p>
-        <div className="space-y-1">
-          {sidebarItems.slice(6).map(({ label, icon: Icon }) => {
-            const isActive = activeItem === label;
-            return (
-              <button
-                key={label}
-                type="button"
-                aria-current={isActive ? "page" : undefined}
-                onClick={() => onSelect(label)}
-                className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-xs font-semibold transition ${isActive ? "bg-orange/10 text-orange" : "text-slate-500 hover:bg-slate-50 hover:text-navy"}`}
-              >
-                <Icon size={16} strokeWidth={isActive ? 2.2 : 1.8} />
-                <span className="min-w-0 flex-1">{label}</span>
-                {label === "Assignments" && <span title={`${availableAssignments} assignments available`} aria-label={`${availableAssignments} assignments available`} role="img" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange text-[10px] font-extrabold text-navy">{availableAssignments}</span>}
-                {label === "Payments" && !paymentGatewayConfigured && <span title="Please set up your payment gateway" aria-label="Please set up your payment gateway" className="ml-1 flex max-w-[112px] shrink-0 items-center gap-1.5 rounded-full border border-orange/30 bg-orange/10 px-2 py-1 text-[9px] font-bold leading-3 text-orange"><span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange shadow-[0_0_8px_rgba(255,153,0,0.8)] motion-safe:animate-pulse" /><span>Please set up your payment gateway</span></span>}
                 {isActive && <ChevronRight size={14} />}
               </button>
             );
@@ -234,9 +220,9 @@ export default function Dashboard() {
   const { session, signOut } = useAuth();
   const [activeItem, setActiveItem] = useState("Dashboard");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [securityModalOpen, setSecurityModalOpen] = useState(false);
-  const [deviceNoticeOpen, setDeviceNoticeOpen] = useState(true);
   const [trustedVendorOpen, setTrustedVendorOpen] = useState(false);
+  const [deviceNotRecognizedOpen, setDeviceNotRecognizedOpen] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [today, setToday] = useState(() => new Date());
   const currentDate = useMemo(
@@ -277,28 +263,19 @@ export default function Dashboard() {
 
   const selectNavItem = (label: string) => {
     setMobileNavOpen(false);
-    if (label === "Device Authorization") {
-      setTrustedVendorOpen(true);
-      return;
-    }
-    if (label !== "Dashboard") {
-      setSecurityModalOpen(true);
-      return;
-    }
     setActiveItem(label);
   };
 
   useEffect(() => {
-    if (!securityModalOpen && !deviceNoticeOpen && !trustedVendorOpen) return;
+    if (!deviceNotRecognizedOpen && !trustedVendorOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
-      setSecurityModalOpen(false);
-      setDeviceNoticeOpen(false);
+      setDeviceNotRecognizedOpen(false);
       setTrustedVendorOpen(false);
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [deviceNoticeOpen, securityModalOpen, trustedVendorOpen]);
+  }, [deviceNotRecognizedOpen, trustedVendorOpen]);
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f8f9fa] text-ink">
@@ -319,7 +296,7 @@ export default function Dashboard() {
             <span className="hidden text-xs font-semibold text-white/60 sm:block">Amazon Contributor Portal</span>
           </div>
           <div className="flex items-center gap-3 sm:gap-5">
-            <button type="button" aria-label="View notifications" onClick={() => setSecurityModalOpen(true)} className="relative rounded-md p-2 text-white/70 transition hover:bg-white/10 hover:text-white">
+            <button type="button" aria-label="View notifications" className="relative rounded-md p-2 text-white/70 transition hover:bg-white/10 hover:text-white">
               <Bell size={18} />
               <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-orange" />
             </button>
@@ -365,10 +342,12 @@ export default function Dashboard() {
             <div className="flex flex-col gap-4 rounded-xl border border-orange/30 bg-orange/[0.07] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" role="status">
               <div className="flex items-start gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange text-navy"><ShieldCheck size={19} /></span>
-                <div><h2 className="text-sm font-extrabold text-navy">Device Not Authorized</h2><p className="mt-1 max-w-[760px] text-xs leading-5 text-slate-600">Your account has been approved, but your device has not yet been authorized. Some platform features are restricted until device authorization is completed.</p></div>
+                <div><h2 className="text-sm font-extrabold text-navy">Device Not Recognized</h2><p className="mt-1 max-w-[760px] text-xs leading-5 text-slate-600">Your account has been approved, but your device has not yet been recognized. You can browse assignments and navigate freely — device verification is only required to start tasks.</p></div>
               </div>
               <button type="button" onClick={() => setTrustedVendorOpen(true)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-navy px-4 py-3 text-xs font-extrabold text-white transition hover:bg-[#1d3042]"><LockKeyhole size={15} className="text-orange" /> Contact Trusted Vendor</button>
             </div>
+            {activeItem === "Dashboard" && (
+            <>
             <div className="mt-7 flex flex-col justify-between gap-5 border-b border-slate-200 pb-7 sm:flex-row sm:items-end">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Amazon Contributor Dashboard</p>
@@ -418,8 +397,8 @@ export default function Dashboard() {
                     <div className="mt-5 flex items-start gap-3">
                       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-orange text-navy"><LockKeyhole size={21} /></span>
                       <div>
-                        <p className="text-sm font-extrabold text-navy">Device Not Authorized</p>
-                        <span className="mt-2 inline-flex rounded-full border border-orange/30 bg-orange/10 px-2.5 py-1 text-[10px] font-extrabold text-orange">Not Authorized</span>
+                        <p className="text-sm font-extrabold text-navy">Device Not Recognized</p>
+                        <span className="mt-2 inline-flex rounded-full border border-orange/30 bg-orange/10 px-2.5 py-1 text-[10px] font-extrabold text-orange">Not Recognized</span>
                         <p className="mt-2 text-xs leading-5 text-slate-500">Authorize your trusted device before participating in assignments.</p>
                       </div>
                     </div>
@@ -481,7 +460,7 @@ export default function Dashboard() {
                     <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-slate-400"><CreditCard size={21} /></span>
                     <p className="mt-4 text-sm font-extrabold text-navy">No payments available yet</p>
                     <p className="mx-auto mt-2 max-w-[250px] text-xs leading-5 text-slate-500">Payment details will be available after you earn from eligible assignments.</p>
-                    <button type="button" onClick={() => selectNavItem("Payments")} className="mt-5 inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2.5 text-xs font-bold text-navy transition hover:border-orange hover:text-orange">View Payment Information <ArrowRight size={14} /></button>
+                    <button type="button" onClick={() => selectNavItem("Earnings")} className="mt-5 inline-flex items-center gap-2 rounded-md border border-slate-200 px-4 py-2.5 text-xs font-bold text-navy transition hover:border-orange hover:text-orange">View Payment Information <ArrowRight size={14} /></button>
                   </div>
                 </section>
 
@@ -491,10 +470,22 @@ export default function Dashboard() {
                     <div className="flex items-start gap-3"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-orange" /><p className="text-xs leading-5 text-white/70">Your account is active and ready for setup.</p></div>
                     <div className="flex items-start gap-3"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-orange" /><p className="text-xs leading-5 text-white/70">Complete device authorization before participating in assignments.</p></div>
                   </div>
-                  <button type="button" onClick={() => selectNavItem("Help Center")} className="mt-5 inline-flex items-center gap-2 text-xs font-bold text-orange transition hover:text-orange-light">Need assistance? Visit Help Center <ArrowRight size={14} /></button>
+                  <button type="button" onClick={() => selectNavItem("Support")} className="mt-5 inline-flex items-center gap-2 text-xs font-bold text-orange transition hover:text-orange-light">Need assistance? Visit Support <ArrowRight size={14} /></button>
                 </section>
               </div>
             </div>
+            </>
+            )}
+            {activeItem === "Assignments" && (
+              <AssignmentsSection
+                deviceVerified={false}
+                onStartTask={(a) => { setSelectedAssignment(a); setDeviceNotRecognizedOpen(true); }}
+              />
+            )}
+            {activeItem === "My Tasks" && <MyTasksSection />}
+            {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} />}
+            {activeItem === "Profile" && <ProfileSection session={session} contributorId={contributorId} />}
+            {activeItem === "Support" && <SupportSection />}
 
             <div className="mt-8 flex flex-col justify-between gap-3 border-t border-slate-200 pt-5 text-[10px] text-slate-400 sm:flex-row sm:items-center">
               <p>Amazon Contributor Portal · Secure access for approved contributors</p>
@@ -503,9 +494,8 @@ export default function Dashboard() {
           </div>
         </main>
       </div>
-      {deviceNoticeOpen && <DeviceNoticeModal onDismiss={() => setDeviceNoticeOpen(false)} onContactVendor={() => { setDeviceNoticeOpen(false); setTrustedVendorOpen(true); }} />}
+      {deviceNotRecognizedOpen && <DeviceNotRecognizedModal onClose={() => setDeviceNotRecognizedOpen(false)} onVerifyDevice={() => { setDeviceNotRecognizedOpen(false); navigate("/trusted-vendor"); }} />}
       {trustedVendorOpen && <TrustedVendorModal onClose={() => setTrustedVendorOpen(false)} />}
-      {securityModalOpen && <SecurityModal onClose={() => setSecurityModalOpen(false)} onContactVendor={() => { setSecurityModalOpen(false); setTrustedVendorOpen(true); }} />}
     </div>
   );
 }

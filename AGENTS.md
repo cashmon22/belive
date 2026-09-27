@@ -162,3 +162,11 @@ const data: MyRouteResponse = await response.json();
 - Production-ready with multiple deployment options
 - Comprehensive UI component library included
 - Type-safe API communication via shared interfaces
+
+## Base44 Dev Environment
+
+- **Run**: `docker compose -f docker-compose.base44.yml up -d` — serves on host port 3000 (maps to internal 8080).
+- **Quirk**: `vite.config.ts` imports `./server` at config-load time, which transitively creates a Supabase client. All three Supabase env vars (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) must be valid before Vite can start — an invalid URL crashes the config loader with `Invalid supabaseUrl`.
+- **Secrets**: delivered via `/run/base44/app.env` (platform-managed, outside the repo). Never hardcode Supabase credentials in compose `environment:`.
+- **pnpm**: v10.14.0 specified in `packageManager`, activated via `corepack enable pnpm` at container start.
+- **Verify**: `curl http://localhost:3000/health` should return `{"status":"ok"}`.
