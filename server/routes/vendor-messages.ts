@@ -394,13 +394,19 @@ export const getOrCreateSupportConversation: RequestHandler = async (req, res) =
   const fullName = (user.user_metadata?.full_name as string) || user.email?.split("@")[0] || "User";
   const email = user.email ?? "";
 
-  // Create new support conversation — only user_id, conversation_type, user_name, user_email
-  // are set; all device fields are intentionally left NULL (support is not tied to a device)
+  // Create new support conversation. The table still has NOT NULL constraints on
+  // device-related columns (migration to drop them hasn't been applied yet), so we
+  // provide sentinel values that clearly indicate this is a support conversation.
   const { data, error } = await authSupabase
     .from("vendor_conversations")
     .insert({
       user_id: user.id,
       conversation_type: "support",
+      payment_request_id: "00000000-0000-0000-0000-000000000000",
+      device_id: "support",
+      device_name: "Support",
+      device_model: "N/A",
+      reference_number: "SUPPORT",
       user_name: fullName,
       user_email: email,
     })
@@ -493,11 +499,17 @@ export const adminCreateSupportConversation: RequestHandler = async (req, res) =
   const fullName = (targetUser.user_metadata?.full_name as string) || targetUser.email?.split("@")[0] || "User";
   const email = targetUser.email ?? "";
 
+  // Create new support conversation with sentinel values for NOT NULL device columns.
   const { data, error } = await serviceSupabase
     .from("vendor_conversations")
     .insert({
       user_id: userId,
       conversation_type: "support",
+      payment_request_id: "00000000-0000-0000-0000-000000000000",
+      device_id: "support",
+      device_name: "Support",
+      device_model: "N/A",
+      reference_number: "SUPPORT",
       user_name: fullName,
       user_email: email,
     })
