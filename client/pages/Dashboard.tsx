@@ -40,9 +40,11 @@ import DeviceNotRecognizedModal from "@/components/dashboard/DeviceNotRecognized
 import ApprovedDeviceInstructions from "@/components/dashboard/ApprovedDeviceInstructions";
 import MessagesSection from "@/components/dashboard/MessagesSection";
 import VendorChat from "@/components/dashboard/VendorChat";
+import NotificationCenter from "@/components/NotificationCenter";
 import { assignments, type Assignment } from "@/lib/assignments";
 import { useContributorEarnings } from "@/lib/earnings";
 import { useDeviceRequest } from "@/lib/use-device-request";
+import { useUnreadMessageCount } from "@/lib/notifications";
 import type { PaymentRequest } from "@shared/payment-requests";
 
 const sidebarItems: Array<{ label: string; icon: LucideIcon }> = [
@@ -73,7 +75,7 @@ function DashboardLogo({ dark = false }: { dark?: boolean }) {
   );
 }
 
-function SidebarContent({ activeItem, onSelect }: { activeItem: string; onSelect: (label: string) => void }) {
+function SidebarContent({ activeItem, onSelect, unreadMessages = 0 }: { activeItem: string; onSelect: (label: string) => void; unreadMessages?: number }) {
   return (
     <>
       <div className="border-b border-slate-200 px-5 py-5">
@@ -97,6 +99,7 @@ function SidebarContent({ activeItem, onSelect }: { activeItem: string; onSelect
                 <Icon size={16} strokeWidth={isActive ? 2.2 : 1.8} />
                 <span className="min-w-0 flex-1">{label}</span>
                 {label === "Assignments" && <span title={`${availableAssignments} assignments available`} aria-label={`${availableAssignments} assignments available`} role="img" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange text-[10px] font-extrabold text-navy">{availableAssignments}</span>}
+                {label === "Messages" && unreadMessages > 0 && <span title={`${unreadMessages} unread messages`} aria-label={`${unreadMessages} unread messages`} role="img" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange text-[10px] font-extrabold text-navy">{unreadMessages}</span>}
                 {isActive && <ChevronRight size={14} />}
               </button>
             );
@@ -228,6 +231,7 @@ export default function Dashboard() {
   const [today, setToday] = useState(() => new Date());
   const { availableBalance, pendingEarnings, totalWithdrawn, paymentGatewayConfigured } = useContributorEarnings(session);
   const { request: deviceRequest, isLoading: deviceRequestLoading } = useDeviceRequest();
+  const unreadMessages = useUnreadMessageCount("user");
   const currentDate = useMemo(
     () => new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(today),
     [today],
@@ -299,10 +303,7 @@ export default function Dashboard() {
             <span className="hidden text-xs font-semibold text-white/60 sm:block">Amazon Contributor Portal</span>
           </div>
           <div className="flex items-center gap-3 sm:gap-5">
-            <button type="button" aria-label="View notifications" className="relative rounded-md p-2 text-white/70 transition hover:bg-white/10 hover:text-white">
-              <Bell size={18} />
-              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-orange" />
-            </button>
+            <NotificationCenter variant="user" />
             <div className="hidden h-7 border-l border-white/15 sm:block" />
             <button
               type="button"
@@ -337,7 +338,7 @@ export default function Dashboard() {
 
       <div className="flex min-h-[calc(100vh-72px)]">
         <aside className="sticky top-[72px] hidden h-[calc(100vh-72px)] w-[250px] shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
-          <SidebarContent activeItem={activeItem} onSelect={selectNavItem} />
+          <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} />
         </aside>
 
         {mobileNavOpen && (
@@ -351,7 +352,7 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <SidebarContent activeItem={activeItem} onSelect={selectNavItem} />
+            <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} />
           </div>
         </aside>
 

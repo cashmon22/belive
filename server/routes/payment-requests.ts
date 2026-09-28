@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import type { Request, RequestHandler } from "express";
 import type { User } from "@supabase/supabase-js";
 import { createAuthenticatedSupabaseClient, createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
+import { notifyAdmins, notifyUser } from "../lib/notifications";
 import { vendorDevices, type VendorDevice } from "../../shared/vendor-data";
 import type {
   CreatePaymentRequestInput,
@@ -222,6 +223,13 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
       res.status(500).json({ error: "Unable to save the payment request." });
       return;
     }
+    void notifyAdmins({
+      type: "new_device_request",
+      title: "New Device Request",
+      message: `${body.fullLegalName} submitted a payment/device request for ${device.name}.`,
+      link: "/admin/device-requests",
+      relatedId: fallback.id,
+    });
     res.status(201).json(mapRequest(fallback));
     return;
   }
@@ -232,6 +240,13 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
     return;
   }
 
+  void notifyAdmins({
+    type: "new_device_request",
+    title: "New Device Request",
+    message: `${body.fullLegalName} submitted a payment/device request for ${device.name}.`,
+    link: "/admin/device-requests",
+    relatedId: data.id,
+  });
   res.status(201).json(mapRequest(data));
 };
 
@@ -300,6 +315,13 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
   // Admin authorization is already verified above via isAdmin(user).
   const serviceSupabase = createServiceRoleSupabaseClient();
 
+  // Fetch the record before update so we can notify the user with device details
+  const { data: existingRecord } = await serviceSupabase
+    .from("payment_requests")
+    .select("id, user_id, device_name")
+    .eq("id", req.params.id)
+    .maybeSingle();
+
   let { data, error } = await serviceSupabase
     .from("payment_requests")
     .update(updateData)
@@ -323,6 +345,32 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
     logPaymentRequestFailure("status update", error);
     res.status(500).json({ error: "Unable to update payment request status." });
     return;
+  }
+
+  // Notify the user when their device request status changes
+  if (existingRecord?.user_id) {
+    const deviceName = existingRecord.device_name ?? "your device";
+    if (status === "Approved") {
+      void notifyUser({
+        userId: existingRecord.user_id,
+        type: "device_approved",
+        title: "Device Request Approved",
+        message: `Your request for ${deviceName} has been approved.`,
+        link: "/dashboard",
+        relatedId: req.params.id,
+      });
+    } else if (status === "Rejected") {
+      void notifyUser({
+        userId: existingRecord.user_id,
+        type: "device_rejected",
+        title: "Device Request Rejected",
+        message: rejectionReason
+          ? `Your request for ${deviceName} was rejected. Reason: ${rejectionReason}`
+          : `Your request for ${deviceName} was rejected.`,
+        link: "/dashboard",
+        relatedId: req.params.id,
+      });
+    }
   }
 
   res.json(data);

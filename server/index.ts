@@ -35,6 +35,11 @@ import {
   markConversationRead,
   sendMessage,
 } from "./routes/vendor-messages";
+import {
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "./routes/notifications";
 
 export function createServer() {
   const app = express();
@@ -82,6 +87,11 @@ export function createServer() {
   app.post("/api/vendor-conversations/:id/messages", sendMessage);
   app.patch("/api/vendor-conversations/:id/read", markConversationRead);
   app.post("/api/admin/support-conversations", adminCreateSupportConversation);
+
+  // Notifications
+  app.get("/api/notifications", listNotifications);
+  app.patch("/api/notifications/:id/read", markNotificationRead);
+  app.patch("/api/notifications/read-all", markAllNotificationsRead);
 
   return app;
 }

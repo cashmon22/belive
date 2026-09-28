@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { getAdminDashboardStats } from "@/lib/admin-dashboard";
+import NotificationCenter from "@/components/NotificationCenter";
+import { useUnreadMessageCount } from "@/lib/notifications";
 
 const navigation = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard, end: true },
@@ -67,6 +69,7 @@ export default function AdminPanel() {
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const unreadMessages = useUnreadMessageCount("admin");
 
   if (isLoading) {
     return <div className="flex min-h-screen items-center justify-center bg-[#f8f9fa] text-sm font-semibold text-navy">Checking your secure session...</div>;
@@ -102,7 +105,9 @@ export default function AdminPanel() {
           <nav className="mt-3 space-y-1" aria-label="Admin navigation">
             {navigation.map(({ label, href, icon: Icon, end }) => (
               <NavLink key={label} to={href} end={end} onClick={() => setMobileNavOpen(false)} className={({ isActive }) => `group flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold transition ${isActive ? "bg-orange text-navy shadow-[0_6px_18px_rgba(255,153,0,0.18)]" : "text-white/65 hover:bg-white/[0.07] hover:text-white"}`}>
-                <Icon size={18} strokeWidth={1.9} /><span>{label}</span><ChevronRight size={15} className="ml-auto opacity-0 transition group-[.bg-orange]:opacity-60" />
+                <Icon size={18} strokeWidth={1.9} /><span>{label}</span>
+                {label === "Messages" && unreadMessages > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange px-1.5 text-[10px] font-extrabold text-navy">{unreadMessages}</span>}
+                <ChevronRight size={15} className="ml-auto opacity-0 transition group-[.bg-orange]:opacity-60" />
               </NavLink>
             ))}
           </nav>
@@ -121,7 +126,7 @@ export default function AdminPanel() {
       <div className="min-h-screen lg:pl-[264px]">
         <header className="sticky top-0 z-20 flex h-[76px] items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-7 lg:px-10">
           <div className="flex items-center gap-3"><button type="button" className="rounded-lg border border-slate-200 p-2 text-navy lg:hidden" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button><div><p className="hidden text-[10px] font-bold uppercase tracking-[0.18em] text-orange sm:block">Administrator workspace</p><h1 className="text-lg font-extrabold text-navy sm:mt-0.5 sm:text-xl">{location.pathname === "/admin" ? "Dashboard" : navigation.find((item) => item.href === location.pathname)?.label || "Admin Portal"}</h1></div></div>
-          <div className="flex items-center gap-2 sm:gap-4"><button type="button" className="hidden rounded-lg border border-slate-200 p-2.5 text-slate-400 transition hover:border-orange/40 hover:text-orange sm:block" aria-label="Search"><Search size={17} /></button><button type="button" className="relative rounded-lg border border-slate-200 p-2.5 text-slate-400 transition hover:border-orange/40 hover:text-orange" aria-label="Notifications"><Bell size={17} /><span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-orange" /></button><span className="hidden h-7 w-px bg-slate-200 sm:block" /><span className="flex h-9 w-9 items-center justify-center rounded-full bg-navy text-xs font-extrabold text-white">{initials}</span></div>
+          <div className="flex items-center gap-2 sm:gap-4"><button type="button" className="hidden rounded-lg border border-slate-200 p-2.5 text-slate-400 transition hover:border-orange/40 hover:text-orange sm:block" aria-label="Search"><Search size={17} /></button><NotificationCenter variant="admin" /><span className="hidden h-7 w-px bg-slate-200 sm:block" /><span className="flex h-9 w-9 items-center justify-center rounded-full bg-navy text-xs font-extrabold text-white">{initials}</span></div>
         </header>
         <main className="mx-auto max-w-[1440px] px-4 py-7 sm:px-7 sm:py-9 lg:px-10 lg:py-11"><Outlet /></main>
       </div>

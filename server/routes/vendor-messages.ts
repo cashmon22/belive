@@ -1,6 +1,7 @@
 import type { Request, RequestHandler } from "express";
 import type { User } from "@supabase/supabase-js";
 import { createAuthenticatedSupabaseClient, createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
+import { notifyAdmins } from "../lib/notifications";
 import type {
   VendorConversation,
   VendorMessage,
@@ -253,7 +254,7 @@ export const sendMessage: RequestHandler = async (req, res) => {
 
   const { data: conversation, error: convError } = await authSupabase
     .from("vendor_conversations")
-    .select("id, user_id, user_unread_count, admin_unread_count")
+    .select("id, user_id, user_name, user_unread_count, admin_unread_count")
     .eq("id", req.params.id)
     .maybeSingle();
 
@@ -269,6 +270,8 @@ export const sendMessage: RequestHandler = async (req, res) => {
   }
 
   const senderRole = admin ? "admin" : "user";
+  // Track whether this is the first unread message for the admin (for notification dedup)
+  const wasAdminUnreadZero = !admin && (conversation.admin_unread_count ?? 0) === 0;
 
   // Insert the message
   const { data: message, error: msgError } = await authSupabase
@@ -306,6 +309,19 @@ export const sendMessage: RequestHandler = async (req, res) => {
 
   if (updateError) {
     console.error("Failed to update conversation metadata", { message: updateError.message });
+  }
+
+  // Notify admins only on the first unread message (prevents notification spam)
+  if (wasAdminUnreadZero) {
+    const userName = (conversation as { user_name?: string }).user_name ?? "A user";
+    const isSupport = (conversation as { conversation_type?: string }).conversation_type === "support";
+    void notifyAdmins({
+      type: "new_message",
+      title: "New Message",
+      message: `${userName} sent you a new${isSupport ? " Support" : ""} message.`,
+      link: "/admin/messages",
+      relatedId: req.params.id,
+    });
   }
 
   res.status(201).json(mapMessage(message));

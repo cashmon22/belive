@@ -1,5 +1,6 @@
 import type { Request, RequestHandler } from "express";
 import { createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
+import { notifyAdmins } from "../lib/notifications";
 import type { AdminApplication, AdminApplicationStatus, VerificationStatus } from "../../shared/admin-applications";
 
 const allowedStatuses: AdminApplicationStatus[] = ["Under Review", "Approved", "Rejected"];
@@ -140,6 +141,14 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
     return;
   }
   console.log("[applications] Inserted application submission_id=%s email=%s", applicationId, values.email ?? "");
+  const applicantName = `${values.firstName ?? ""} ${values.lastName ?? ""}`.trim() || "A new applicant";
+  void notifyAdmins({
+    type: "new_application",
+    title: "New Application Submitted",
+    message: `${applicantName} submitted a new contributor application.`,
+    link: "/admin/applications",
+    relatedId: applicationId,
+  });
   res.status(201).json({ id: applicationId });
 };
 
