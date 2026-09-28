@@ -14,15 +14,20 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageSquare,
   MonitorCheck,
   Search,
   Settings,
   ShieldCheck,
   UserRound,
   X,
+  Clock3,
 } from "lucide-react";
 import { vendorDevices, type DeviceCategory, type VendorDevice } from "@/vendor-data";
 import { supabase } from "@/lib/supabase";
+import { listPaymentRequests } from "@/lib/payment-requests";
+import type { PaymentRequest } from "@shared/payment-requests";
+import VendorChat from "@/components/dashboard/VendorChat";
 
 type AvailableDeviceRecord = {
   id: string;
@@ -235,11 +240,7 @@ function formatPrice(device: VendorDevice) {
   }).format(device.price);
 }
 
-function contactSellerUrl(device: VendorDevice) {
-  const message = `Hello, I'm interested in the ${device.name} listed on your website. Is this device still available? Please let me know the availability and next steps. Thank you.`;
 
-  return `https://t.me/AuthorizedDeviceDesk?text=${encodeURIComponent(message)}`;
-}
 
 export function AuthenticatedVendorHeader({
   displayName,
@@ -327,10 +328,14 @@ export function AuthenticatedVendorHeader({
 
 function DeviceCard({
   device,
+  existingRequest,
   onOpen,
+  onMessageVendor,
 }: {
   device: VendorDevice;
+  existingRequest?: PaymentRequest;
   onOpen: () => void;
+  onMessageVendor: (req: PaymentRequest) => void;
 }) {
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-card transition duration-300 hover:-translate-y-1 hover:border-orange/40 hover:shadow-elevated">
@@ -415,26 +420,49 @@ function DeviceCard({
           </button>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-2">
-          <Link
-            to={`/trusted-vendor/request-payment?deviceId=${encodeURIComponent(
-              device.id
-            )}`}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-orange px-3 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:-translate-y-0.5 hover:bg-orange-light"
-          >
-            <CreditCard size={14} />
-            Request Payment
-          </Link>
-
-          <a
-            href={contactSellerUrl(device)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center justify-center rounded-md border border-slate-200 px-3 py-3 text-xs font-extrabold text-navy transition hover:border-orange hover:text-orange"
-          >
-            Contact Seller
-          </a>
-        </div>
+        {existingRequest?.status === "Approved" || existingRequest?.status === "Completed" ? (
+          <div className="mt-5 space-y-2">
+            <div className="flex items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs font-extrabold text-emerald-700">
+              <Check size={14} />
+              {existingRequest.status}
+            </div>
+            <button
+              type="button"
+              onClick={() => onMessageVendor(existingRequest)}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-3 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:-translate-y-0.5 hover:bg-orange-light"
+            >
+              <MessageSquare size={14} />
+              Message Vendor
+            </button>
+          </div>
+        ) : existingRequest?.status === "Under Review" || existingRequest?.status === "Rejected" ? (
+          <div className="mt-5 space-y-2">
+            <div className={`flex items-center justify-center gap-2 rounded-md border px-3 py-3 text-xs font-extrabold ${existingRequest.status === "Under Review" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+              {existingRequest.status === "Under Review" ? <Clock3 size={14} /> : <X size={14} />}
+              {existingRequest.status}
+            </div>
+            <div className="rounded-md border border-slate-200 bg-[#fbfcfd] px-3 py-3 text-center">
+              <p className="text-[10px] font-extrabold text-slate-600">Vendor Messaging Unavailable</p>
+              <p className="mt-1 text-[10px] leading-4 text-slate-400">Your device request must be approved before you can message the vendor about this device.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-5 space-y-2">
+            <Link
+              to={`/trusted-vendor/request-payment?deviceId=${encodeURIComponent(
+                device.id
+              )}`}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-3 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:-translate-y-0.5 hover:bg-orange-light"
+            >
+              <CreditCard size={14} />
+              Request Payment
+            </Link>
+            <div className="rounded-md border border-slate-200 bg-[#fbfcfd] px-3 py-3 text-center">
+              <p className="text-[10px] font-extrabold text-slate-600">Vendor Messaging Unavailable</p>
+              <p className="mt-1 text-[10px] leading-4 text-slate-400">Your device request must be approved before you can message the vendor about this device.</p>
+            </div>
+          </div>
+        )}
       </div>
     </article>
   );
@@ -442,10 +470,14 @@ function DeviceCard({
 
 function DeviceDetailsModal({
   device,
+  existingRequest,
   onClose,
+  onMessageVendor,
 }: {
   device: VendorDevice;
+  existingRequest?: PaymentRequest;
   onClose: () => void;
+  onMessageVendor: (req: PaymentRequest) => void;
 }) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -571,26 +603,49 @@ function DeviceDetailsModal({
               </span>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <Link
-                to={`/trusted-vendor/request-payment?deviceId=${encodeURIComponent(
-                  device.id
-                )}`}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-orange px-4 py-3.5 text-xs font-extrabold text-navy transition hover:bg-orange-light"
-              >
-                <CreditCard size={15} />
-                Request Payment
-              </Link>
-
-              <a
-                href={contactSellerUrl(device)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center rounded-md border border-slate-200 px-4 py-3.5 text-xs font-extrabold text-navy transition hover:border-orange hover:text-orange"
-              >
-                Contact Seller
-              </a>
-            </div>
+            {existingRequest?.status === "Approved" || existingRequest?.status === "Completed" ? (
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center justify-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3.5 text-xs font-extrabold text-emerald-700">
+                  <Check size={14} />
+                  {existingRequest.status}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onMessageVendor(existingRequest)}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-4 py-3.5 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.16)] transition hover:bg-orange-light"
+                >
+                  <MessageSquare size={15} />
+                  Message Vendor
+                </button>
+              </div>
+            ) : existingRequest?.status === "Under Review" || existingRequest?.status === "Rejected" ? (
+              <div className="mt-6 space-y-3">
+                <div className={`flex items-center justify-center gap-2 rounded-md border px-4 py-3.5 text-xs font-extrabold ${existingRequest.status === "Under Review" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+                  {existingRequest.status === "Under Review" ? <Clock3 size={14} /> : <X size={14} />}
+                  {existingRequest.status}
+                </div>
+                <div className="rounded-md border border-slate-200 bg-[#fbfcfd] px-4 py-3.5 text-center">
+                  <p className="text-[10px] font-extrabold text-slate-600">Vendor Messaging Unavailable</p>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-400">Your device request must be approved before you can message the vendor about this device.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6 space-y-3">
+                <Link
+                  to={`/trusted-vendor/request-payment?deviceId=${encodeURIComponent(
+                    device.id
+                  )}`}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-4 py-3.5 text-xs font-extrabold text-navy transition hover:bg-orange-light"
+                >
+                  <CreditCard size={15} />
+                  Request Payment
+                </Link>
+                <div className="rounded-md border border-slate-200 bg-[#fbfcfd] px-4 py-3.5 text-center">
+                  <p className="text-[10px] font-extrabold text-slate-600">Vendor Messaging Unavailable</p>
+                  <p className="mt-1 text-[10px] leading-4 text-slate-400">Your device request must be approved before you can message the vendor about this device.</p>
+                </div>
+              </div>
+            )}
 
             <div className="mt-5 flex items-start gap-2 rounded-md bg-[#f8f9fa] p-3 text-[10px] leading-4 text-slate-500">
               <Check
@@ -621,8 +676,10 @@ export default function TrustedVendor() {
   const [additionalDevices, setAdditionalDevices] =
     useState<VendorDevice[]>([]);
   const [inventoryError, setInventoryError] = useState("");
+  const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [chatRequest, setChatRequest] = useState<{ request: PaymentRequest; deviceName: string } | null>(null);
 
   const displayName =
     session?.user.user_metadata?.full_name ||
@@ -667,10 +724,33 @@ export default function TrustedVendor() {
     };
   }, []);
 
+  useEffect(() => {
+    let isMounted = true;
+    void listPaymentRequests()
+      .then((requests) => {
+        if (isMounted) setPaymentRequests(requests);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const devices = useMemo(
     () => [...vendorDevices, ...additionalDevices],
     [additionalDevices]
   );
+
+  const requestByDeviceId = useMemo(() => {
+    const map = new Map<string, PaymentRequest>();
+    for (const req of paymentRequests) {
+      const existing = map.get(req.deviceId);
+      if (!existing || new Date(req.createdAt) > new Date(existing.createdAt)) {
+        map.set(req.deviceId, req);
+      }
+    }
+    return map;
+  }, [paymentRequests]);
 
   const handleLogout = async () => {
     if (isSigningOut) return;
@@ -871,7 +951,9 @@ export default function TrustedVendor() {
                     <DeviceCard
                       key={device.id}
                       device={device}
+                      existingRequest={requestByDeviceId.get(device.id)}
                       onOpen={() => setSelectedDevice(device)}
+                      onMessageVendor={(req) => setChatRequest({ request: req, deviceName: device.name })}
                     />
                   ))}
                 </div>
@@ -950,8 +1032,9 @@ export default function TrustedVendor() {
                 </h2>
 
                 <p className="mt-2 max-w-[540px] text-sm text-white/60">
-                  If you need help choosing a device, use Contact Seller on any
-                  listing to ask about availability, delivery, and payment.
+                  If you need help choosing a device, submit a payment request
+                  for your selected device. Once approved, you can message the
+                  vendor directly.
                 </p>
               </div>
 
@@ -970,7 +1053,20 @@ export default function TrustedVendor() {
       {selectedDevice && (
         <DeviceDetailsModal
           device={selectedDevice}
+          existingRequest={requestByDeviceId.get(selectedDevice.id)}
           onClose={() => setSelectedDevice(null)}
+          onMessageVendor={(req) => {
+            setSelectedDevice(null);
+            setChatRequest({ request: req, deviceName: selectedDevice.name });
+          }}
+        />
+      )}
+
+      {chatRequest && (
+        <VendorChat
+          paymentRequest={chatRequest.request}
+          deviceName={chatRequest.deviceName}
+          onClose={() => setChatRequest(null)}
         />
       )}
     </div>

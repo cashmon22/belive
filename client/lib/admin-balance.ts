@@ -1,4 +1,8 @@
-import type { CreatePaymentRequestInput, PaymentRequest, PaymentRequestStatus } from "@shared/payment-requests";
+import type {
+  AdjustBalanceInput,
+  BalanceTransaction,
+  UserBalance,
+} from "@shared/admin-balance";
 import { supabase } from "./supabase";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -20,26 +24,24 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-export function createPaymentRequest(input: CreatePaymentRequestInput) {
-  return request<PaymentRequest>("/api/payment-requests", {
+export function getUserBalance(userId: string) {
+  return request<UserBalance>(`/api/admin/users/${userId}/balance`);
+}
+
+export function addUserBalance(userId: string, input: AdjustBalanceInput) {
+  return request<BalanceTransaction>(`/api/admin/users/${userId}/balance/add`, {
     method: "POST",
     body: JSON.stringify(input),
   });
 }
 
-export function listPaymentRequests() {
-  return request<PaymentRequest[]>("/api/payment-requests");
-}
-
-export function updatePaymentRequestStatus(id: string, status: PaymentRequestStatus, rejectionReason?: string) {
-  return request<{ id: string; status: PaymentRequestStatus }>(`/api/admin/payment-requests/${id}/status`, {
-    method: "PATCH",
-    body: JSON.stringify({ status, rejectionReason }),
+export function removeUserBalance(userId: string, input: AdjustBalanceInput) {
+  return request<BalanceTransaction>(`/api/admin/users/${userId}/balance/remove`, {
+    method: "POST",
+    body: JSON.stringify(input),
   });
 }
 
-export function deletePaymentRequest(id: string) {
-  return request<{ id: string }>(`/api/admin/payment-requests/${id}`, {
-    method: "DELETE",
-  });
+export function listBalanceTransactions(userId: string) {
+  return request<BalanceTransaction[]>(`/api/admin/users/${userId}/balance/transactions`);
 }

@@ -1,4 +1,4 @@
-export type PaymentRequestStatus = "Pending Review" | "Approved" | "Rejected" | "Completed";
+export type PaymentRequestStatus = "Under Review" | "Approved" | "Rejected" | "Completed";
 
 export type PaymentRequest = {
   id: string;
@@ -19,6 +19,8 @@ export type PaymentRequest = {
   vendor: string;
   status: PaymentRequestStatus;
   createdAt: string;
+  rejectionReason?: string | null;
+  reviewedAt?: string | null;
 };
 
 export type CreatePaymentRequestInput = {

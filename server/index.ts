@@ -18,7 +18,28 @@ import {
   listAdminApplications,
   mirrorApplication,
   updateAdminApplicationStatus,
+  updateAdminApplicationVerification,
 } from "./routes/admin-applications";
+import {
+  addUserBalance,
+  getUserBalance,
+  listBalanceTransactions,
+  removeUserBalance,
+} from "./routes/admin-balance";
+import {
+  adminCreateSupportConversation,
+  createOrGetConversation,
+  getConversation,
+  getOrCreateSupportConversation,
+  listConversations,
+  markConversationRead,
+  sendMessage,
+} from "./routes/vendor-messages";
+import {
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from "./routes/notifications";
 
 export function createServer() {
   const app = express();
@@ -48,10 +69,29 @@ export function createServer() {
   app.get("/api/admin/users", listAdminUsers);
   app.get("/api/admin/users/:id", getAdminUserDetails);
   app.patch("/api/admin/users/:id/status", updateAdminUserStatus);
+  app.get("/api/admin/users/:id/balance", getUserBalance);
+  app.post("/api/admin/users/:id/balance/add", addUserBalance);
+  app.post("/api/admin/users/:id/balance/remove", removeUserBalance);
+  app.get("/api/admin/users/:id/balance/transactions", listBalanceTransactions);
   app.post("/api/applications/mirror", mirrorApplication);
   app.get("/api/admin/applications", listAdminApplications);
   app.get("/api/admin/applications/:id", getAdminApplicationDetails);
   app.patch("/api/admin/applications/:id/status", updateAdminApplicationStatus);
+  app.patch("/api/admin/applications/:id/verification", updateAdminApplicationVerification);
+
+  // Vendor + Support messaging
+  app.post("/api/vendor-conversations", createOrGetConversation);
+  app.get("/api/vendor-conversations", listConversations);
+  app.get("/api/vendor-conversations/support", getOrCreateSupportConversation);
+  app.get("/api/vendor-conversations/:id", getConversation);
+  app.post("/api/vendor-conversations/:id/messages", sendMessage);
+  app.patch("/api/vendor-conversations/:id/read", markConversationRead);
+  app.post("/api/admin/support-conversations", adminCreateSupportConversation);
+
+  // Notifications
+  app.get("/api/notifications", listNotifications);
+  app.patch("/api/notifications/:id/read", markNotificationRead);
+  app.patch("/api/notifications/read-all", markAllNotificationsRead);
 
   return app;
 }

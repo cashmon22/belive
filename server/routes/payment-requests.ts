@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
 import type { Request, RequestHandler } from "express";
 import type { User } from "@supabase/supabase-js";
-import { createAuthenticatedSupabaseClient, supabase } from "../lib/supabase";
+import { createAuthenticatedSupabaseClient, createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
+import { notifyAdmins, notifyUser } from "../lib/notifications";
 import { vendorDevices, type VendorDevice } from "../../shared/vendor-data";
 import type {
   CreatePaymentRequestInput,
@@ -9,7 +10,7 @@ import type {
 } from "../../shared/payment-requests";
 
 const allowedStatuses: PaymentRequestStatus[] = [
-  "Pending Review",
+  "Under Review",
   "Approved",
   "Rejected",
   "Completed",
@@ -47,6 +48,12 @@ function requireText(value: unknown) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+// PostgREST may return PGRST204 (schema cache miss) or PostgreSQL may return
+// 42703 (undefined_column) when rejection_reason/reviewed_at don't exist yet.
+function isMissingColumnError(error: { code?: string } | null): boolean {
+  return !!error && (error.code === "42703" || error.code === "PGRST204");
+}
+
 function logPaymentRequestFailure(stage: string, error: unknown) {
   const details = error && typeof error === "object" ? error as Record<string, unknown> : {};
   console.error("Payment request failed", {
@@ -56,6 +63,35 @@ function logPaymentRequestFailure(stage: string, error: unknown) {
     details: typeof details.details === "string" ? details.details : undefined,
     hint: typeof details.hint === "string" ? details.hint : undefined,
   });
+}
+
+const baseSelect = "id, user_id, full_legal_name, email, phone, delivery_address, city, state_province, postal_code, country, device_id, device_name, device_model, device_amount, currency, vendor, status, created_at";
+const fullSelect = `${baseSelect}, rejection_reason, reviewed_at`;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapRequest(row: any) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    fullLegalName: row.full_legal_name,
+    email: row.email,
+    phone: row.phone,
+    deliveryAddress: row.delivery_address,
+    city: row.city,
+    stateProvince: row.state_province,
+    postalCode: row.postal_code,
+    country: row.country,
+    deviceId: row.device_id,
+    deviceName: row.device_name,
+    deviceModel: row.device_model,
+    deviceAmount: row.device_amount,
+    currency: row.currency,
+    vendor: row.vendor,
+    status: row.status,
+    createdAt: row.created_at,
+    rejectionReason: row.rejection_reason ?? null,
+    reviewedAt: row.reviewed_at ?? null,
+  };
 }
 
 export const createPaymentRequest: RequestHandler = async (req, res) => {
@@ -79,6 +115,23 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
       error:
         "Complete all required fields and confirm the information provided.",
     });
+    return;
+  }
+
+  // Prevent duplicate active requests for the same device.
+  // "Active" = Under Review or Approved. Rejected requests allow re-submission.
+  const { data: existingActive } = await authenticatedSupabase
+    .from("payment_requests")
+    .select(baseSelect)
+    .eq("user_id", user.id)
+    .eq("device_id", body.deviceId)
+    .in("status", ["Under Review", "Approved"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingActive) {
+    res.status(200).json(mapRequest(existingActive));
     return;
   }
 
@@ -134,12 +187,52 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
       device_amount: device.price,
       currency: device.currency,
       vendor: "Trusted Vendor",
-      status: "Pending Review",
+      status: "Under Review",
     })
-    .select(
-      "id, user_id, full_legal_name, email, phone, delivery_address, city, state_province, postal_code, country, device_id, device_name, device_model, device_amount, currency, vendor, status, created_at",
-    )
+    .select(fullSelect)
     .single();
+
+  if (isMissingColumnError(error)) {
+    // rejection_reason/reviewed_at columns don't exist yet — retry without them
+    const { data: fallback, error: fallbackError } = await authenticatedSupabase
+      .from("payment_requests")
+      .insert({
+        id: crypto.randomUUID(),
+        user_id: user.id,
+        full_legal_name: body.fullLegalName.trim(),
+        email: user.email ?? "",
+        phone: body.phone.trim(),
+        delivery_address: body.deliveryAddress.trim(),
+        city: body.city.trim(),
+        state_province: body.stateProvince.trim(),
+        postal_code: body.postalCode.trim(),
+        country: body.country.trim(),
+        device_id: device.id,
+        device_name: device.name,
+        device_model: device.model,
+        device_amount: device.price,
+        currency: device.currency,
+        vendor: "Trusted Vendor",
+        status: "Under Review",
+      })
+      .select(baseSelect)
+      .single();
+
+    if (fallbackError) {
+      logPaymentRequestFailure("payment request insert", fallbackError);
+      res.status(500).json({ error: "Unable to save the payment request." });
+      return;
+    }
+    void notifyAdmins({
+      type: "new_device_request",
+      title: "New Device Request",
+      message: `${body.fullLegalName} submitted a payment/device request for ${device.name}.`,
+      link: "/admin/device-requests",
+      relatedId: fallback.id,
+    });
+    res.status(201).json(mapRequest(fallback));
+    return;
+  }
 
   if (error) {
     logPaymentRequestFailure("payment request insert", error);
@@ -147,26 +240,14 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
     return;
   }
 
-  res.status(201).json({
-    id: data.id,
-    userId: data.user_id,
-    fullLegalName: data.full_legal_name,
-    email: data.email,
-    phone: data.phone,
-    deliveryAddress: data.delivery_address,
-    city: data.city,
-    stateProvince: data.state_province,
-    postalCode: data.postal_code,
-    country: data.country,
-    deviceId: data.device_id,
-    deviceName: data.device_name,
-    deviceModel: data.device_model,
-    deviceAmount: data.device_amount,
-    currency: data.currency,
-    vendor: data.vendor,
-    status: data.status,
-    createdAt: data.created_at,
+  void notifyAdmins({
+    type: "new_device_request",
+    title: "New Device Request",
+    message: `${body.fullLegalName} submitted a payment/device request for ${device.name}.`,
+    link: "/admin/device-requests",
+    relatedId: data.id,
   });
+  res.status(201).json(mapRequest(data));
 };
 
 export const listPaymentRequests: RequestHandler = async (req, res) => {
@@ -174,49 +255,43 @@ export const listPaymentRequests: RequestHandler = async (req, res) => {
   if (!context) return;
   const { user, supabase: authenticatedSupabase } = context;
 
-  const query = authenticatedSupabase
+  let query = authenticatedSupabase
     .from("payment_requests")
-    .select(
-      "id, user_id, full_legal_name, email, phone, delivery_address, city, state_province, postal_code, country, device_id, device_name, device_model, device_amount, currency, vendor, status, created_at",
-    )
+    .select(fullSelect)
     .order("created_at", { ascending: false });
-  const { data, error } = isAdmin(user)
-    ? await query
-    : await query.eq("user_id", user.id);
+  if (!isAdmin(user)) query = query.eq("user_id", user.id);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let data: any[] | null;
+  let result = await query;
+
+  if (isMissingColumnError(result.error)) {
+    // rejection_reason/reviewed_at columns don't exist yet — retry without them
+    let fallbackQuery = authenticatedSupabase
+      .from("payment_requests")
+      .select(baseSelect)
+      .order("created_at", { ascending: false });
+    if (!isAdmin(user)) fallbackQuery = fallbackQuery.eq("user_id", user.id);
+    const fallback = await fallbackQuery;
+    data = fallback.data;
+    result = { data: fallback.data, error: fallback.error } as typeof result;
+  } else {
+    data = result.data;
+  }
+
+  const error = result.error;
   if (error) {
     res.status(500).json({ error: "Unable to load payment requests." });
     return;
   }
 
-  res.json(
-    data.map((request) => ({
-      id: request.id,
-      userId: request.user_id,
-      fullLegalName: request.full_legal_name,
-      email: request.email,
-      phone: request.phone,
-      deliveryAddress: request.delivery_address,
-      city: request.city,
-      stateProvince: request.state_province,
-      postalCode: request.postal_code,
-      country: request.country,
-      deviceId: request.device_id,
-      deviceName: request.device_name,
-      deviceModel: request.device_model,
-      deviceAmount: request.device_amount,
-      currency: request.currency,
-      vendor: request.vendor,
-      status: request.status,
-      createdAt: request.created_at,
-    })),
-  );
+  res.json(data.map(mapRequest));
 };
 
 export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
   const context = await getAuthenticatedUser(req, res);
   if (!context) return;
-  const { user, supabase: authenticatedSupabase } = context;
+  const { user } = context;
   if (!isAdmin(user)) {
     res.status(403).json({ error: "Administrator access required" });
     return;
@@ -228,16 +303,74 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
     return;
   }
 
-  const { data, error } = await authenticatedSupabase
+  const rejectionReason = typeof req.body?.rejectionReason === "string" ? req.body.rejectionReason.trim() : null;
+  const updateData: Record<string, unknown> = { status, reviewed_at: new Date().toISOString() };
+  if (status === "Rejected" && rejectionReason) {
+    updateData.rejection_reason = rejectionReason;
+  } else if (status !== "Rejected") {
+    updateData.rejection_reason = null;
+  }
+
+  // Use the service role client so the update bypasses RLS.
+  // Admin authorization is already verified above via isAdmin(user).
+  const serviceSupabase = createServiceRoleSupabaseClient();
+
+  // Fetch the record before update so we can notify the user with device details
+  const { data: existingRecord } = await serviceSupabase
     .from("payment_requests")
-    .update({ status })
+    .select("id, user_id, device_name")
+    .eq("id", req.params.id)
+    .maybeSingle();
+
+  let { data, error } = await serviceSupabase
+    .from("payment_requests")
+    .update(updateData)
     .eq("id", req.params.id)
     .select("id, status")
     .single();
 
+  if (isMissingColumnError(error)) {
+    // rejection_reason/reviewed_at columns don't exist — retry with just status
+    const fallback = await serviceSupabase
+      .from("payment_requests")
+      .update({ status })
+      .eq("id", req.params.id)
+      .select("id, status")
+      .single();
+    data = fallback.data;
+    error = fallback.error;
+  }
+
   if (error) {
+    logPaymentRequestFailure("status update", error);
     res.status(500).json({ error: "Unable to update payment request status." });
     return;
+  }
+
+  // Notify the user when their device request status changes
+  if (existingRecord?.user_id) {
+    const deviceName = existingRecord.device_name ?? "your device";
+    if (status === "Approved") {
+      void notifyUser({
+        userId: existingRecord.user_id,
+        type: "device_approved",
+        title: "Device Request Approved",
+        message: `Your request for ${deviceName} has been approved.`,
+        link: "/dashboard",
+        relatedId: req.params.id,
+      });
+    } else if (status === "Rejected") {
+      void notifyUser({
+        userId: existingRecord.user_id,
+        type: "device_rejected",
+        title: "Device Request Rejected",
+        message: rejectionReason
+          ? `Your request for ${deviceName} was rejected. Reason: ${rejectionReason}`
+          : `Your request for ${deviceName} was rejected.`,
+        link: "/dashboard",
+        relatedId: req.params.id,
+      });
+    }
   }
 
   res.json(data);
@@ -246,13 +379,17 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
 export const deletePaymentRequest: RequestHandler = async (req, res) => {
   const context = await getAuthenticatedUser(req, res);
   if (!context) return;
-  const { user, supabase: authenticatedSupabase } = context;
+  const { user } = context;
   if (!isAdmin(user)) {
     res.status(403).json({ error: "Administrator access required" });
     return;
   }
 
-  const { data, error } = await authenticatedSupabase
+  // Use the service role client so the delete bypasses RLS.
+  // Admin authorization is already verified above via isAdmin(user).
+  const serviceSupabase = createServiceRoleSupabaseClient();
+
+  const { data, error } = await serviceSupabase
     .from("payment_requests")
     .delete()
     .eq("id", req.params.id)
@@ -260,7 +397,7 @@ export const deletePaymentRequest: RequestHandler = async (req, res) => {
     .single();
 
   if (error) {
-    console.error("Unable to delete payment request", error);
+    logPaymentRequestFailure("delete", error);
     res.status(500).json({ error: "Unable to delete payment request." });
     return;
   }

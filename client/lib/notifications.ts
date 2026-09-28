@@ -1,0 +1,163 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { AppNotification } from "@shared/notifications";
+import { supabase } from "./supabase";
+import { listConversations } from "./vendor-messages";
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session)
+    throw new Error("Your secure session has expired. Please sign in again.");
+
+  const response = await fetch(path, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+  const payload = (await response.json().catch(() => null)) as
+    | { error?: string }
+    | T
+    | null;
+  if (!response.ok) {
+    throw new Error(
+      payload && typeof payload === "object" && "error" in payload
+        ? payload.error
+        : "Unable to complete the request.",
+    );
+  }
+  return payload as T;
+}
+
+export function listNotifications() {
+  return request<AppNotification[]>("/api/notifications");
+}
+
+export function markNotificationRead(id: string) {
+  return request<{ success: boolean }>(`/api/notifications/${id}/read`, {
+    method: "PATCH",
+  });
+}
+
+export function markAllNotificationsRead() {
+  return request<{ success: boolean }>("/api/notifications/read-all", {
+    method: "PATCH",
+  });
+}
+
+/**
+ * Hook: notifications list + unread count + realtime updates.
+ * Used by the NotificationCenter bell component.
+ */
+export function useNotifications() {
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const channelRef = useRef(
+    `notifications-rt-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
+
+  const load = useCallback(async () => {
+    try {
+      setNotifications(await listNotifications());
+    } catch {
+      // ignore — table may not exist yet
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+
+    const channel = supabase
+      .channel(channelRef.current)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications" },
+        () => void load(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications" },
+        () => void load(),
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [load]);
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  const markRead = useCallback(async (id: string) => {
+    await markNotificationRead(id);
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+    );
+  }, []);
+
+  const markAllRead = useCallback(async () => {
+    await markAllNotificationsRead();
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+  }, []);
+
+  return { notifications, unreadCount, isLoading, markRead, markAllRead };
+}
+
+/**
+ * Hook: unread message count for the Messages badge.
+ * role "user" sums userUnreadCount, role "admin" sums adminUnreadCount.
+ * Subscribes to realtime updates on vendor_conversations and vendor_messages.
+ */
+export function useUnreadMessageCount(role: "user" | "admin") {
+  const [count, setCount] = useState(0);
+  const channelRef = useRef(
+    `unread-msg-${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const load = async () => {
+      try {
+        const conversations = await listConversations();
+        if (!isMounted) return;
+        const unread = conversations.reduce(
+          (sum, c) =>
+            sum + (role === "admin" ? c.adminUnreadCount : c.userUnreadCount),
+          0,
+        );
+        setCount(unread);
+      } catch {
+        // ignore
+      }
+    };
+
+    void load();
+
+    const channel = supabase
+      .channel(channelRef.current)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "vendor_messages" },
+        () => void load(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "vendor_conversations" },
+        () => void load(),
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      void supabase.removeChannel(channel);
+    };
+  }, [role]);
+
+  return count;
+}

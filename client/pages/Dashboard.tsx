@@ -6,11 +6,11 @@ import {
   ArrowRight,
   Bell,
   BriefcaseBusiness,
-  Check,
   CheckCircle2,
   ChevronRight,
   CircleDollarSign,
   ClipboardCheck,
+  Clock3,
   CreditCard,
   Headphones,
   HelpCircle,
@@ -19,10 +19,12 @@ import {
   LogOut,
   Mail,
   Menu,
+  MessageSquare,
   MonitorCheck,
   Settings,
   ShieldCheck,
   UserRound,
+  Wallet,
   WalletCards,
   X,
   ClipboardList,
@@ -35,7 +37,15 @@ import EarningsSection from "@/components/dashboard/EarningsSection";
 import ProfileSection from "@/components/dashboard/ProfileSection";
 import SupportSection from "@/components/dashboard/SupportSection";
 import DeviceNotRecognizedModal from "@/components/dashboard/DeviceNotRecognizedModal";
-import type { Assignment } from "@/lib/assignments";
+import ApprovedDeviceInstructions from "@/components/dashboard/ApprovedDeviceInstructions";
+import MessagesSection from "@/components/dashboard/MessagesSection";
+import VendorChat from "@/components/dashboard/VendorChat";
+import NotificationCenter from "@/components/NotificationCenter";
+import { assignments, type Assignment } from "@/lib/assignments";
+import { useContributorEarnings } from "@/lib/earnings";
+import { useDeviceRequest } from "@/lib/use-device-request";
+import { useUnreadMessageCount } from "@/lib/notifications";
+import type { PaymentRequest } from "@shared/payment-requests";
 
 const sidebarItems: Array<{ label: string; icon: LucideIcon }> = [
   { label: "Dashboard", icon: LayoutDashboard },
@@ -43,21 +53,13 @@ const sidebarItems: Array<{ label: string; icon: LucideIcon }> = [
   { label: "My Tasks", icon: ClipboardList },
   { label: "Earnings", icon: CircleDollarSign },
   { label: "Profile", icon: UserRound },
+  { label: "Messages", icon: MessageSquare },
   { label: "Support", icon: LifeBuoy },
-];
-
-const onboardingItems = [
-  "Account Approved",
-  "Dashboard Access Granted",
-  "Review Contributor Guidelines",
-  "Contact Trusted Vendor",
-  "Access Future Assignments",
 ];
 
 const contributorId = "CTR-162-717";
 const contributorName = "Contributor";
-const availableAssignments = 12;
-const paymentGatewayConfigured = false;
+const availableAssignments = assignments.filter((a) => a.status === "Available").length;
 
 function DashboardLogo({ dark = false }: { dark?: boolean }) {
   return (
@@ -73,7 +75,7 @@ function DashboardLogo({ dark = false }: { dark?: boolean }) {
   );
 }
 
-function SidebarContent({ activeItem, onSelect }: { activeItem: string; onSelect: (label: string) => void }) {
+function SidebarContent({ activeItem, onSelect, unreadMessages = 0 }: { activeItem: string; onSelect: (label: string) => void; unreadMessages?: number }) {
   return (
     <>
       <div className="border-b border-slate-200 px-5 py-5">
@@ -97,6 +99,7 @@ function SidebarContent({ activeItem, onSelect }: { activeItem: string; onSelect
                 <Icon size={16} strokeWidth={isActive ? 2.2 : 1.8} />
                 <span className="min-w-0 flex-1">{label}</span>
                 {label === "Assignments" && <span title={`${availableAssignments} assignments available`} aria-label={`${availableAssignments} assignments available`} role="img" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange text-[10px] font-extrabold text-navy">{availableAssignments}</span>}
+                {label === "Messages" && unreadMessages > 0 && <span title={`${unreadMessages} unread messages`} aria-label={`${unreadMessages} unread messages`} role="img" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange text-[10px] font-extrabold text-navy">{unreadMessages}</span>}
                 {isActive && <ChevronRight size={14} />}
               </button>
             );
@@ -224,7 +227,11 @@ export default function Dashboard() {
   const [deviceNotRecognizedOpen, setDeviceNotRecognizedOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [chatRequest, setChatRequest] = useState<{ request: PaymentRequest; deviceName: string } | null>(null);
   const [today, setToday] = useState(() => new Date());
+  const { availableBalance, pendingEarnings, totalWithdrawn, paymentGatewayConfigured } = useContributorEarnings(session);
+  const { request: deviceRequest, isLoading: deviceRequestLoading } = useDeviceRequest();
+  const unreadMessages = useUnreadMessageCount("user");
   const currentDate = useMemo(
     () => new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(today),
     [today],
@@ -296,9 +303,21 @@ export default function Dashboard() {
             <span className="hidden text-xs font-semibold text-white/60 sm:block">Amazon Contributor Portal</span>
           </div>
           <div className="flex items-center gap-3 sm:gap-5">
-            <button type="button" aria-label="View notifications" className="relative rounded-md p-2 text-white/70 transition hover:bg-white/10 hover:text-white">
-              <Bell size={18} />
-              <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-orange" />
+            <NotificationCenter variant="user" />
+            <div className="hidden h-7 border-l border-white/15 sm:block" />
+            <button
+              type="button"
+              onClick={() => selectNavItem("Earnings")}
+              className="flex items-center gap-2 rounded-md px-2 py-1 text-left transition hover:bg-white/10"
+              aria-label={`Wallet balance: $${availableBalance.toFixed(2)}`}
+            >
+              <Wallet size={16} className="shrink-0 text-orange" />
+              <div className="leading-tight">
+                <p className="text-xs font-extrabold text-white">${availableBalance.toFixed(2)}</p>
+                <p className="text-[9px] text-white/50">
+                  {paymentGatewayConfigured ? "Payment configured" : "Setup payment gateway"}
+                </p>
+              </div>
             </button>
             <div className="hidden h-7 border-l border-white/15 sm:block" />
             <div className="flex items-center gap-2.5">
@@ -319,7 +338,7 @@ export default function Dashboard() {
 
       <div className="flex min-h-[calc(100vh-72px)]">
         <aside className="sticky top-[72px] hidden h-[calc(100vh-72px)] w-[250px] shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
-          <SidebarContent activeItem={activeItem} onSelect={selectNavItem} />
+          <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} />
         </aside>
 
         {mobileNavOpen && (
@@ -333,19 +352,54 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <SidebarContent activeItem={activeItem} onSelect={selectNavItem} />
+            <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} />
           </div>
         </aside>
 
         <main className="min-w-0 flex-1">
           <div className="mx-auto max-w-[1440px] px-4 py-7 sm:px-6 sm:py-9 lg:px-10 lg:py-10">
-            <div className="flex flex-col gap-4 rounded-xl border border-orange/30 bg-orange/[0.07] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" role="status">
-              <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange text-navy"><ShieldCheck size={19} /></span>
-                <div><h2 className="text-sm font-extrabold text-navy">Device Not Recognized</h2><p className="mt-1 max-w-[760px] text-xs leading-5 text-slate-600">Your account has been approved, but your device has not yet been recognized. You can browse assignments and navigate freely — device verification is only required to start tasks.</p></div>
+            {deviceRequest?.status === "Approved" ? (
+              <div className="flex flex-col gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" role="status">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white"><CheckCircle2 size={19} /></span>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-navy">{deviceRequest.deviceName}</h2>
+                    <p className="mt-1 max-w-[760px] text-xs leading-5 text-emerald-700">Your device request has been approved. A check will be mailed to your email within 48 hours.</p>
+                  </div>
+                </div>
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white"><CheckCircle2 size={14} /> Approved</span>
               </div>
-              <button type="button" onClick={() => setTrustedVendorOpen(true)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-navy px-4 py-3 text-xs font-extrabold text-white transition hover:bg-[#1d3042]"><LockKeyhole size={15} className="text-orange" /> Contact Trusted Vendor</button>
-            </div>
+            ) : deviceRequest?.status === "Rejected" ? (
+              <div className="flex flex-col gap-4 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" role="status">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500 text-white"><X size={19} /></span>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-navy">{deviceRequest.deviceName}</h2>
+                    <p className="mt-1 max-w-[760px] text-xs leading-5 text-red-700">Your device request has been rejected.{deviceRequest.rejectionReason ? ` Reason: ${deviceRequest.rejectionReason}` : ""}</p>
+                  </div>
+                </div>
+                <Link to="/trusted-vendor" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-navy px-4 py-3 text-xs font-extrabold text-white transition hover:bg-[#1d3042]"><ArrowRight size={15} /> Submit New Request</Link>
+              </div>
+            ) : deviceRequest?.status === "Under Review" ? (
+              <div className="flex flex-col gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" role="status">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white"><Clock3 size={19} /></span>
+                  <div>
+                    <h2 className="text-sm font-extrabold text-navy">{deviceRequest.deviceName}</h2>
+                    <p className="mt-1 max-w-[760px] text-xs leading-5 text-amber-700">Your device request is under review. You'll be notified once a decision is made.</p>
+                  </div>
+                </div>
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-amber-500 px-4 py-2 text-xs font-extrabold text-white"><Clock3 size={14} /> Under Review</span>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 rounded-xl border border-orange/30 bg-orange/[0.07] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" role="status">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange text-navy"><ShieldCheck size={19} /></span>
+                  <div><h2 className="text-sm font-extrabold text-navy">Device Not Recognized</h2><p className="mt-1 max-w-[760px] text-xs leading-5 text-slate-600">Your account has been approved, but your device has not yet been recognized. You can browse assignments and navigate freely — device verification is only required to start tasks.</p></div>
+                </div>
+                <button type="button" onClick={() => setTrustedVendorOpen(true)} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-navy px-4 py-3 text-xs font-extrabold text-white transition hover:bg-[#1d3042]"><LockKeyhole size={15} className="text-orange" /> Contact Trusted Vendor</button>
+              </div>
+            )}
             {activeItem === "Dashboard" && (
             <>
             <div className="mt-7 flex flex-col justify-between gap-5 border-b border-slate-200 pb-7 sm:flex-row sm:items-end">
@@ -392,30 +446,62 @@ export default function Dashboard() {
                     </div>
                   </section>
 
-                  <section className="rounded-xl border border-orange/30 bg-orange/[0.045] p-5 shadow-card sm:p-6">
-                    <SectionHeading icon={MonitorCheck} eyebrow="Required setup" title="Device Authorization" action="Action needed" />
-                    <div className="mt-5 flex items-start gap-3">
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-orange text-navy"><LockKeyhole size={21} /></span>
-                      <div>
-                        <p className="text-sm font-extrabold text-navy">Device Not Recognized</p>
-                        <span className="mt-2 inline-flex rounded-full border border-orange/30 bg-orange/10 px-2.5 py-1 text-[10px] font-extrabold text-orange">Not Recognized</span>
-                        <p className="mt-2 text-xs leading-5 text-slate-500">Authorize your trusted device before participating in assignments.</p>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setTrustedVendorOpen(true)}
-                      className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-4 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-light disabled:cursor-not-allowed disabled:opacity-70"
-                    >
-                      <>Contact Trusted Vendor <ArrowRight size={15} /></>
-                    </button>
+                  <section className={`rounded-xl border p-5 shadow-card sm:p-6 ${deviceRequest?.status === "Approved" ? "border-emerald-200 bg-emerald/[0.03]" : deviceRequest?.status === "Rejected" ? "border-red-200 bg-red/[0.03]" : deviceRequest?.status === "Under Review" ? "border-amber-200 bg-amber/[0.03]" : "border-orange/30 bg-orange/[0.045]"}`}>
+                    <SectionHeading icon={MonitorCheck} eyebrow="Required setup" title="Device Authorization" action={deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status === "Rejected" ? "Rejected" : deviceRequest?.status === "Under Review" ? "Under Review" : "Action needed"} />
+                    {deviceRequest?.status === "Approved" ? (
+                      <ApprovedDeviceInstructions deviceName={deviceRequest.deviceName} onMessageVendor={() => setChatRequest({ request: deviceRequest, deviceName: deviceRequest.deviceName })} />
+                    ) : deviceRequest?.status === "Rejected" ? (
+                      <>
+                        <div className="mt-5 flex items-start gap-3">
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-red-500 text-white"><X size={21} /></span>
+                          <div>
+                            <p className="text-sm font-extrabold text-navy">{deviceRequest.deviceName}</p>
+                            <span className="mt-2 inline-flex rounded-full border border-red-200 bg-red-50 px-2.5 py-1 text-[10px] font-extrabold text-red-700">Rejected</span>
+                            {deviceRequest.rejectionReason && <p className="mt-2 text-xs leading-5 text-red-600">{deviceRequest.rejectionReason}</p>}
+                          </div>
+                        </div>
+                        <Link to="/trusted-vendor" className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-4 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-light">
+                          Submit New Request <ArrowRight size={15} />
+                        </Link>
+                      </>
+                    ) : deviceRequest?.status === "Under Review" ? (
+                      <>
+                        <div className="mt-5 flex items-start gap-3">
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-amber-500 text-white"><Clock3 size={21} /></span>
+                          <div>
+                            <p className="text-sm font-extrabold text-navy">{deviceRequest.deviceName}</p>
+                            <span className="mt-2 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-extrabold text-amber-700">Under Review</span>
+                            <p className="mt-2 text-xs leading-5 text-slate-500">Your device request is being reviewed. You'll be notified once a decision is made.</p>
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => setTrustedVendorOpen(true)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-4 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-light">
+                          Contact Trusted Vendor <ArrowRight size={15} />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="mt-5 flex items-start gap-3">
+                          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-orange text-navy"><LockKeyhole size={21} /></span>
+                          <div>
+                            <p className="text-sm font-extrabold text-navy">Device Not Recognized</p>
+                            <span className="mt-2 inline-flex rounded-full border border-orange/30 bg-orange/10 px-2.5 py-1 text-[10px] font-extrabold text-orange">Not Recognized</span>
+                            <p className="mt-2 text-xs leading-5 text-slate-500">Authorize your trusted device before participating in assignments.</p>
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => setTrustedVendorOpen(true)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-orange px-4 py-3 text-xs font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.15)] transition hover:-translate-y-0.5 hover:bg-orange-light disabled:cursor-not-allowed disabled:opacity-70">
+                          <>Contact Trusted Vendor <ArrowRight size={15} /></>
+                        </button>
+                      </>
+                    )}
                   </section>
                 </div>
 
                 <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
                   <SectionHeading icon={BriefcaseBusiness} eyebrow="Work overview" title="Assignments Overview" action="No activity yet" />
                   <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <Metric label="Available assignments" value="0" accent />
+                    <button type="button" onClick={() => selectNavItem("Assignments")} className="text-left transition hover:scale-[1.02]">
+                      <Metric label="Available assignments" value={String(availableAssignments)} accent />
+                    </button>
                     <Metric label="Pending assignments" value="0" />
                     <Metric label="Completed assignments" value="0" />
                   </div>
@@ -425,35 +511,15 @@ export default function Dashboard() {
                 <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
                   <SectionHeading icon={WalletCards} eyebrow="Financial overview" title="Earnings Overview" action="No earnings yet" />
                   <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                    <Metric label="Available balance" value="$0.00" accent />
-                    <Metric label="Pending earnings" value="$0.00" />
-                    <Metric label="Total withdrawn" value="$0.00" />
+                    <Metric label="Available balance" value={`$${availableBalance.toFixed(2)}`} accent />
+                    <Metric label="Pending earnings" value={`$${pendingEarnings.toFixed(2)}`} />
+                    <Metric label="Total withdrawn" value={`$${totalWithdrawn.toFixed(2)}`} />
                   </div>
                   <p className="mt-4 text-[11px] leading-5 text-slate-500">Earnings and balance information will update when eligible assignments are completed.</p>
                 </section>
               </div>
 
               <div className="space-y-5">
-                <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
-                  <SectionHeading icon={ClipboardCheck} eyebrow="Your progress" title="Getting Started" action="2 of 5 complete" />
-                  <div className="mt-5 space-y-1">
-                    {onboardingItems.map((item, index) => {
-                      const complete = index < 2;
-                      return (
-                        <div key={item} className="flex items-center gap-3 rounded-md px-2 py-2.5">
-                          <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${complete ? "bg-emerald-50 text-emerald-600" : "border border-slate-200 text-slate-300"}`}>
-                            {complete ? <Check size={13} strokeWidth={3} /> : <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />}
-                          </span>
-                          <span className={`text-xs ${complete ? "font-semibold text-navy" : "text-slate-500"}`}>{item}</span>
-                          {!complete && <ChevronRight size={14} className="ml-auto text-slate-300" />}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-slate-100"><div className="h-full w-2/5 rounded-full bg-orange" /></div>
-                  <p className="mt-2 text-[10px] text-slate-400">Keep moving through setup to prepare your account.</p>
-                </section>
-
                 <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
                   <SectionHeading icon={CreditCard} eyebrow="Account finance" title="Payments Overview" />
                   <div className="mt-6 text-center">
@@ -478,13 +544,14 @@ export default function Dashboard() {
             )}
             {activeItem === "Assignments" && (
               <AssignmentsSection
-                deviceVerified={false}
+                deviceVerified={deviceRequest?.status === "Approved"}
                 onStartTask={(a) => { setSelectedAssignment(a); setDeviceNotRecognizedOpen(true); }}
               />
             )}
             {activeItem === "My Tasks" && <MyTasksSection />}
-            {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} />}
+            {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} session={session} deviceVerified={deviceRequest?.status === "Approved"} onContactVendor={() => setTrustedVendorOpen(true)} />}
             {activeItem === "Profile" && <ProfileSection session={session} contributorId={contributorId} />}
+            {activeItem === "Messages" && <MessagesSection />}
             {activeItem === "Support" && <SupportSection />}
 
             <div className="mt-8 flex flex-col justify-between gap-3 border-t border-slate-200 pt-5 text-[10px] text-slate-400 sm:flex-row sm:items-center">
@@ -496,6 +563,13 @@ export default function Dashboard() {
       </div>
       {deviceNotRecognizedOpen && <DeviceNotRecognizedModal onClose={() => setDeviceNotRecognizedOpen(false)} onVerifyDevice={() => { setDeviceNotRecognizedOpen(false); navigate("/trusted-vendor"); }} />}
       {trustedVendorOpen && <TrustedVendorModal onClose={() => setTrustedVendorOpen(false)} />}
+      {chatRequest && (
+        <VendorChat
+          paymentRequest={chatRequest.request}
+          deviceName={chatRequest.deviceName}
+          onClose={() => setChatRequest(null)}
+        />
+      )}
     </div>
   );
 }
