@@ -5,7 +5,6 @@ import type { AdminApplication, AdminApplicationStatus, VerificationStatus } fro
 
 const allowedStatuses: AdminApplicationStatus[] = ["Under Review", "Approved", "Rejected"];
 const allowedVerificationStatuses: VerificationStatus[] = ["Verified", "Not Verified"];
-const applicationFields = ["firstName", "lastName", "email", "phone", "country", "timeZone", "interests", "hours", "experience", "reason", "eligibility"] as const;
 
 const eligibilityLabels = [
   "I am at least 18 years old.",
@@ -15,7 +14,7 @@ const eligibilityLabels = [
   "I understand applications are reviewed before approval.",
 ];
 
-type ApplicationInput = Record<string, unknown> & { applicationId?: unknown; submittedAt?: unknown };
+type ApplicationInput = Record<string, unknown>;
 
 type ApplicationRow = {
   id: string;
@@ -104,30 +103,109 @@ function rowToApplication(row: ApplicationRow): AdminApplication {
   };
 }
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const RATE_LIMIT_MAX = 5;
+const recentSubmissions = new Map<string, number[]>();
+
+function textField(value: unknown, max: number) {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
+}
+
+/** Best-effort per-instance throttle (serverless instances do not share memory). */
+function isRateLimited(ip: string) {
+  const now = Date.now();
+  const hits = (recentSubmissions.get(ip) ?? []).filter((time) => now - time < RATE_LIMIT_WINDOW_MS);
+  hits.push(now);
+  recentSubmissions.set(ip, hits);
+  return hits.length > RATE_LIMIT_MAX;
+}
+
+async function optionalUserId(req: Request) {
+  const token = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!token) return null;
+  const { data } = await supabase.auth.getUser(token);
+  return data.user?.id ?? null;
+}
+
 export const mirrorApplication: RequestHandler = async (req, res) => {
-  const body = req.body as ApplicationInput;
-  const applicationId = typeof body.applicationId === "string" && body.applicationId.trim() ? body.applicationId.trim() : crypto.randomUUID();
-  const submittedAt = typeof body.submittedAt === "string" && !Number.isNaN(Date.parse(body.submittedAt)) ? body.submittedAt : new Date().toISOString();
-  const values = Object.fromEntries(applicationFields.map((field) => [field, body[field]]));
-  const eligibility = Array.isArray(values.eligibility) ? (values.eligibility as string[]) : [];
+  const body = (req.body ?? {}) as ApplicationInput;
+  // Honeypot: real users never fill this hidden field.
+  if (textField(body.website, 200)) {
+    res.status(400).json({ error: "Unable to save the application." });
+    return;
+  }
+  const ip = (req.headers["x-forwarded-for"]?.toString().split(",")[0] ?? req.ip ?? "unknown").trim();
+  if (isRateLimited(ip)) {
+    res.status(429).json({ error: "Too many submissions. Please wait a few minutes and try again." });
+    return;
+  }
+
+  const firstName = textField(body.firstName, 100);
+  const lastName = textField(body.lastName, 100);
+  const email = textField(body.email, 254).toLowerCase();
+  const phone = textField(body.phone, 40);
+  const country = textField(body.country, 100);
+  const timeZone = textField(body.timeZone, 100);
+  const hours = textField(body.hours, 50);
+  const experience = textField(body.experience, 2000);
+  const reason = textField(body.reason, 5000);
+  const interests = Array.isArray(body.interests) ? body.interests.filter((item): item is string => typeof item === "string").slice(0, 20).map((item) => item.slice(0, 100)) : [];
+  const eligibility = Array.isArray(body.eligibility) ? body.eligibility.filter((item): item is string => typeof item === "string") : [];
+
+  if (!firstName || !lastName || !email || !phone || !country || !timeZone) {
+    res.status(400).json({ error: "Please complete all required personal information fields." });
+    return;
+  }
+  if (!EMAIL_PATTERN.test(email)) {
+    res.status(400).json({ error: "Please enter a valid email address." });
+    return;
+  }
+  if (!interests.length) {
+    res.status(400).json({ error: "Please select at least one assignment category." });
+    return;
+  }
+  if (!eligibilityLabels.every((label) => eligibility.includes(label))) {
+    res.status(400).json({ error: "Please confirm all eligibility statements." });
+    return;
+  }
 
   const serviceSupabase = serviceClient(res);
   if (!serviceSupabase) return;
+
+  const { data: pending, error: duplicateError } = await serviceSupabase
+    .from("applications")
+    .select("submission_id")
+    .ilike("email", email)
+    .eq("status", "Under Review")
+    .limit(1);
+  if (duplicateError) {
+    console.error("[api] Unable to check for duplicate applications.", duplicateError);
+    res.status(500).json({ error: "Unable to save the application." });
+    return;
+  }
+  if (pending?.length) {
+    res.status(409).json({ error: "An application for this email address is already under review." });
+    return;
+  }
+
+  const applicationId = crypto.randomUUID();
+  const userId = await optionalUserId(req);
   const { error } = await serviceSupabase.from("applications").insert({
     submission_id: applicationId,
-    created_at: submittedAt,
+    user_id: userId,
     status: "Under Review",
     verification_status: "Not Verified",
-    first_name: values.firstName ?? "",
-    last_name: values.lastName ?? "",
-    email: values.email ?? "",
-    phone: values.phone ?? "",
-    country: values.country ?? "",
-    time_zone: values.timeZone ?? "",
-    assignment_categories: values.interests ?? [],
-    weekly_hours: values.hours ?? "",
-    previous_experience: values.experience ?? "",
-    motivation: values.reason ?? "",
+    first_name: firstName,
+    last_name: lastName,
+    email,
+    phone,
+    country,
+    time_zone: timeZone,
+    assignment_categories: interests,
+    weekly_hours: hours,
+    previous_experience: experience,
+    motivation: reason,
     age_18_plus: eligibility.includes(eligibilityLabels[0]),
     reliable_internet: eligibility.includes(eligibilityLabels[1]),
     follows_instructions: eligibility.includes(eligibilityLabels[2]),
@@ -136,20 +214,53 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
   });
 
   if (error) {
-    console.error("[applications] Insert failed for submission_id=%s:", applicationId, error.message, error.code, error.details);
+    console.error("[api] Unable to save the application.", applicationId, error);
     res.status(500).json({ error: "Unable to save the application." });
     return;
   }
-  console.log("[applications] Inserted application submission_id=%s email=%s", applicationId, values.email ?? "");
-  const applicantName = `${values.firstName ?? ""} ${values.lastName ?? ""}`.trim() || "A new applicant";
   void notifyAdmins({
     type: "new_application",
     title: "New Application Submitted",
-    message: `${applicantName} submitted a new contributor application.`,
+    message: `${firstName} ${lastName} submitted a new contributor application.`,
     link: "/admin/applications",
     relatedId: applicationId,
   });
   res.status(201).json({ id: applicationId });
+};
+
+/** The signed-in user's latest application (matched by linked user id or account email). */
+export const getMyApplication: RequestHandler = async (req, res) => {
+  const token = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!token) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const { data: auth, error: authError } = await supabase.auth.getUser(token);
+  if (authError || !auth.user) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  const serviceSupabase = serviceClient(res);
+  if (!serviceSupabase) return;
+  const email = (auth.user.email ?? "").toLowerCase();
+  const filter = email ? `user_id.eq.${auth.user.id},email.ilike.${email}` : `user_id.eq.${auth.user.id}`;
+  const { data, error } = await serviceSupabase
+    .from("applications")
+    .select("submission_id, status, verification_status, created_at")
+    .or(filter)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("[api] Unable to load your application.", error);
+    res.status(500).json({ error: "Unable to load your application." });
+    return;
+  }
+  res.json({
+    application: data
+      ? { id: data.submission_id, status: data.status, verificationStatus: data.verification_status, submittedAt: data.created_at }
+      : null,
+  });
 };
 
 const selectColumns = "id, submission_id, created_at, status, verification_status, first_name, last_name, email, phone, country, time_zone, assignment_categories, weekly_hours, previous_experience, motivation, age_18_plus, reliable_internet, follows_instructions, agrees_policies, understands_review";
@@ -159,6 +270,7 @@ async function listRows(req: Request, res: Parameters<RequestHandler>[1]) {
   if (!serviceSupabase) return null;
   const { data, error } = await serviceSupabase.from("applications").select(selectColumns).order("created_at", { ascending: false });
   if (error) {
+    console.error("[api] Unable to load applications.", error);
     res.status(500).json({ error: "Unable to load applications." });
     return null;
   }
@@ -201,6 +313,7 @@ export const updateAdminApplicationStatus: RequestHandler = async (req, res) => 
   }
   const { error } = await serviceSupabase.from("applications").update({ status }).eq("submission_id", req.params.id);
   if (error) {
+    console.error("[api] Unable to update application status.", error);
     res.status(500).json({ error: "Unable to update application status." });
     return;
   }
@@ -218,6 +331,7 @@ export const updateAdminApplicationVerification: RequestHandler = async (req, re
   }
   const { error } = await serviceSupabase.from("applications").update({ verification_status: verificationStatus }).eq("submission_id", req.params.id);
   if (error) {
+    console.error("[api] Unable to update verification status.", error);
     res.status(500).json({ error: "Unable to update verification status." });
     return;
   }

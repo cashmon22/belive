@@ -58,6 +58,7 @@ export const listAdminUsers: RequestHandler = async (req, res) => {
 
   const { data, error } = await serviceSupabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
   if (error) {
+    console.error("[api] Unable to load users.", error);
     res.status(500).json({ error: "Unable to load users." });
     return;
   }
@@ -111,6 +112,7 @@ export const updateAdminUserStatus: RequestHandler = async (req, res) => {
     ban_duration: status === "Suspended" ? "876000h" : "none",
   });
   if (error || !data.user) {
+    console.error("[api] Unable to update account status.", error);
     res.status(500).json({ error: "Unable to update account status." });
     return;
   }

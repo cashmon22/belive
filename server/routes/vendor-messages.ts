@@ -160,6 +160,7 @@ export const createOrGetConversation: RequestHandler = async (req, res) => {
       }
     }
     console.error("Failed to create conversation", { message: error.message, code: error.code });
+    console.error("[api] Unable to create conversation.", error);
     res.status(500).json({ error: "Unable to create conversation." });
     return;
   }
@@ -191,6 +192,7 @@ export const listConversations: RequestHandler = async (req, res) => {
 
   if (error) {
     console.error("Failed to list conversations", { message: error.message });
+    console.error("[api] Unable to load conversations.", error);
     res.status(500).json({ error: "Unable to load conversations." });
     return;
   }
@@ -320,7 +322,7 @@ export const sendMessage: RequestHandler = async (req, res) => {
       title: "New Message",
       message: `${userName} sent you a new${isSupport ? " Support" : ""} message.`,
       link: "/admin/messages",
-      relatedId: req.params.id,
+      relatedId: String(req.params.id),
     });
   }
 
@@ -336,7 +338,7 @@ export const sendMessage: RequestHandler = async (req, res) => {
           title: "New Message",
           message: "You have received a new message from the admin team.",
           link: "/dashboard",
-          relatedId: req.params.id,
+          relatedId: String(req.params.id),
         });
       }
     }
@@ -467,6 +469,7 @@ export const getOrCreateSupportConversation: RequestHandler = async (req, res) =
       details: error.details,
       hint: error.hint,
     });
+    console.error("[api] Unable to create support conversation.", error);
     res.status(500).json({ error: "Unable to create support conversation." });
     return;
   }
@@ -571,6 +574,7 @@ export const adminCreateSupportConversation: RequestHandler = async (req, res) =
       details: error.details,
       hint: error.hint,
     });
+    console.error("[api] Unable to create support conversation.", error);
     res.status(500).json({ error: "Unable to create support conversation." });
     return;
   }

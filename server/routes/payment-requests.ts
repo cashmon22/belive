@@ -220,6 +220,7 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
 
     if (fallbackError) {
       logPaymentRequestFailure("payment request insert", fallbackError);
+      console.error("[api] Unable to save the payment request.", error);
       res.status(500).json({ error: "Unable to save the payment request." });
       return;
     }
@@ -236,6 +237,7 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
 
   if (error) {
     logPaymentRequestFailure("payment request insert", error);
+    console.error("[api] Unable to save the payment request.", error);
     res.status(500).json({ error: "Unable to save the payment request." });
     return;
   }
@@ -281,6 +283,7 @@ export const listPaymentRequests: RequestHandler = async (req, res) => {
 
   const error = result.error;
   if (error) {
+    console.error("[api] Unable to load payment requests.", error);
     res.status(500).json({ error: "Unable to load payment requests." });
     return;
   }
@@ -343,6 +346,7 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
 
   if (error) {
     logPaymentRequestFailure("status update", error);
+    console.error("[api] Unable to update payment request status.", error);
     res.status(500).json({ error: "Unable to update payment request status." });
     return;
   }
@@ -357,7 +361,7 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
         title: "Device Request Approved",
         message: `Your request for ${deviceName} has been approved.`,
         link: "/dashboard",
-        relatedId: req.params.id,
+        relatedId: String(req.params.id),
       });
     } else if (status === "Rejected") {
       void notifyUser({
@@ -368,7 +372,7 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
           ? `Your request for ${deviceName} was rejected. Reason: ${rejectionReason}`
           : `Your request for ${deviceName} was rejected.`,
         link: "/dashboard",
-        relatedId: req.params.id,
+        relatedId: String(req.params.id),
       });
     }
   }
@@ -398,6 +402,7 @@ export const deletePaymentRequest: RequestHandler = async (req, res) => {
 
   if (error) {
     logPaymentRequestFailure("delete", error);
+    console.error("[api] Unable to delete payment request.", error);
     res.status(500).json({ error: "Unable to delete payment request." });
     return;
   }

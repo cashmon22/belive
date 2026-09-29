@@ -70,7 +70,7 @@ export default function AdminPanel() {
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const unreadMessages = useUnreadMessageCount("admin");
+  const { count: unreadMessages } = useUnreadMessageCount("admin");
 
   if (isLoading) {
     return <div className="flex min-h-screen items-center justify-center bg-[#f8f9fa] text-sm font-semibold text-navy">Checking your secure session...</div>;

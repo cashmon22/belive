@@ -51,6 +51,7 @@ export const listNotifications: RequestHandler = async (req, res) => {
 
   if (error) {
     console.error("[listNotifications] Failed:", error.message, error.code);
+    console.error("[api] Unable to load notifications.", error);
     res.status(500).json({ error: "Unable to load notifications." });
     return;
   }
@@ -72,6 +73,7 @@ export const markNotificationRead: RequestHandler = async (req, res) => {
 
   if (error) {
     console.error("[markNotificationRead] Failed:", error.message, error.code);
+    console.error("[api] Unable to mark notification.", error);
     res.status(500).json({ error: "Unable to mark notification." });
     return;
   }
@@ -93,6 +95,7 @@ export const markAllNotificationsRead: RequestHandler = async (req, res) => {
 
   if (error) {
     console.error("[markAllNotificationsRead] Failed:", error.message, error.code);
+    console.error("[api] Unable to mark notifications.", error);
     res.status(500).json({ error: "Unable to mark notifications." });
     return;
   }

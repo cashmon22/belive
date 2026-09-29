@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { handleProgramStatus } from "./routes/program";
+import { getAdminDashboardStats } from "./routes/admin-dashboard";
 import {
   createPaymentRequest,
   deletePaymentRequest,
@@ -17,6 +18,7 @@ import {
   getAdminApplicationDetails,
   listAdminApplications,
   mirrorApplication,
+  getMyApplication,
   updateAdminApplicationStatus,
   updateAdminApplicationVerification,
 } from "./routes/admin-applications";
@@ -66,6 +68,7 @@ export function createServer() {
     updatePaymentRequestStatus,
   );
   app.delete("/api/admin/payment-requests/:id", deletePaymentRequest);
+  app.get("/api/admin/dashboard-stats", getAdminDashboardStats);
   app.get("/api/admin/users", listAdminUsers);
   app.get("/api/admin/users/:id", getAdminUserDetails);
   app.patch("/api/admin/users/:id/status", updateAdminUserStatus);
@@ -74,6 +77,7 @@ export function createServer() {
   app.post("/api/admin/users/:id/balance/remove", removeUserBalance);
   app.get("/api/admin/users/:id/balance/transactions", listBalanceTransactions);
   app.post("/api/applications/mirror", mirrorApplication);
+  app.get("/api/applications/me", getMyApplication);
   app.get("/api/admin/applications", listAdminApplications);
   app.get("/api/admin/applications/:id", getAdminApplicationDetails);
   app.patch("/api/admin/applications/:id/status", updateAdminApplicationStatus);
