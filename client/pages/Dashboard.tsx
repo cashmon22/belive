@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useMyApplication } from "@/lib/my-application";
 import { Link, useNavigate } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -234,6 +235,11 @@ export default function Dashboard() {
   const { availableBalance, pendingEarnings, totalWithdrawn, paymentGatewayConfigured, isLoading: earningsLoading } = useContributorEarnings(session);
   const { request: deviceRequest, isLoading: deviceRequestLoading } = useDeviceRequest();
   const { count: unreadMessages, isLoading: unreadLoading } = useUnreadMessageCount("user");
+  const { data: myApplication, isLoading: applicationLoading, isError: applicationError } = useMyApplication(session);
+  // Accounts are issued after review, so an account without a linked application is treated as approved.
+  const applicationStatus = applicationLoading ? "Loading…" : applicationError ? "Unavailable" : myApplication?.status ?? "Approved";
+  const applicationTone = applicationStatus === "Approved" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : applicationStatus === "Rejected" ? "border-red-200 bg-red-50 text-red-700" : applicationStatus === "Under Review" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-slate-200 bg-white text-slate-600";
+  const applicationDot = applicationStatus === "Approved" ? "bg-emerald-500" : applicationStatus === "Rejected" ? "bg-red-500" : applicationStatus === "Under Review" ? "bg-amber-500" : "bg-slate-400";
   const currentDate = useMemo(
     () => new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(today),
     [today],
@@ -410,15 +416,15 @@ export default function Dashboard() {
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Amazon Contributor Dashboard</p>
                 <h1 className="mt-2 text-[30px] font-extrabold tracking-[-0.04em] text-navy sm:text-[38px]">Welcome back, Contributor</h1>
-                <p className="mt-2 max-w-[600px] text-sm leading-6 text-slate-500">Your account is approved. Complete the setup steps below to prepare for future contributor opportunities.</p>
+                <p className="mt-2 max-w-[600px] text-sm leading-6 text-slate-500">{applicationStatus === "Under Review" ? "Your application is under review." : applicationStatus === "Rejected" ? "Your application was not approved." : "Your account is approved."} Complete the setup steps below to prepare for future contributor opportunities.</p>
               </div>
               <div className="flex flex-wrap items-center gap-3 text-xs">
                 <div className="rounded-md border border-slate-200 bg-white px-3 py-2.5">
                   <span className="text-slate-400">Contributor ID:</span>
                   <span className="ml-2 font-bold text-navy">{contributorId}</span>
                 </div>
-                <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5 font-bold text-emerald-700">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" /> Approved
+                <div className={`flex items-center gap-2 rounded-md border px-3 py-2.5 font-bold ${applicationTone}`}>
+                  <span className={`h-2 w-2 rounded-full ${applicationDot}`} /> {applicationStatus}
                 </div>
               </div>
             </div>
@@ -439,7 +445,7 @@ export default function Dashboard() {
                     <div className="mt-5 flex items-center gap-3">
                       <span className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"><CheckCircle2 size={22} /></span>
                       <div>
-                        <p className="text-lg font-extrabold text-navy">Approved</p>
+                        <p className="text-lg font-extrabold text-navy">{applicationStatus}</p>
                         <p className="mt-1 text-xs text-slate-500">Your contributor profile is active.</p>
                       </div>
                     </div>

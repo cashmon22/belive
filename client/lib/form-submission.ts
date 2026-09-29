@@ -1,7 +1,11 @@
+import { supabase } from "./supabase";
+
 const FORMSPREE_ENDPOINT = "https://formspree.io/f/mvkodbjw";
 const submittingFormTypes = new Set<string>();
 
 export const FORM_SUBMISSION_ERROR = "Unable to submit your form. Please try again.";
+
+class SubmissionError extends Error {}
 
 export async function submitForm(formType: string, formData: Record<string, unknown>) {
   if (submittingFormTypes.has(formType)) throw new Error(FORM_SUBMISSION_ERROR);
@@ -11,14 +15,19 @@ export async function submitForm(formType: string, formData: Record<string, unkn
     const submittedAt = new Date().toISOString();
 
     if (formType === "application") {
-      // Supabase is the primary database — insert must succeed.
-      const applicationId = crypto.randomUUID();
+      // Supabase (via the Express API) is the primary database — insert must succeed.
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session) headers.Authorization = `Bearer ${session.access_token}`;
       const mirrorResponse = await fetch("/api/applications/mirror", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, applicationId, submittedAt }),
+        headers,
+        body: JSON.stringify(formData),
       });
-      if (!mirrorResponse.ok) throw new Error("Database submission failed");
+      if (!mirrorResponse.ok) {
+        const payload = (await mirrorResponse.json().catch(() => null)) as { error?: string } | null;
+        throw new SubmissionError(payload?.error || FORM_SUBMISSION_ERROR);
+      }
 
       // Formspree is a secondary notification — best effort, never blocks success.
       try {
@@ -41,7 +50,8 @@ export async function submitForm(formType: string, formData: Record<string, unkn
       });
       if (!response.ok) throw new Error("Form submission failed");
     }
-  } catch {
+  } catch (error) {
+    if (error instanceof SubmissionError) throw error;
     throw new Error(FORM_SUBMISSION_ERROR);
   } finally {
     submittingFormTypes.delete(formType);

@@ -18,6 +18,7 @@ import {
   getAdminApplicationDetails,
   listAdminApplications,
   mirrorApplication,
+  getMyApplication,
   updateAdminApplicationStatus,
   updateAdminApplicationVerification,
 } from "./routes/admin-applications";
@@ -76,6 +77,7 @@ export function createServer() {
   app.post("/api/admin/users/:id/balance/remove", removeUserBalance);
   app.get("/api/admin/users/:id/balance/transactions", listBalanceTransactions);
   app.post("/api/applications/mirror", mirrorApplication);
+  app.get("/api/applications/me", getMyApplication);
   app.get("/api/admin/applications", listAdminApplications);
   app.get("/api/admin/applications/:id", getAdminApplicationDetails);
   app.patch("/api/admin/applications/:id/status", updateAdminApplicationStatus);
