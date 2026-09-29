@@ -115,6 +115,7 @@ export function useNotifications() {
  */
 export function useUnreadMessageCount(role: "user" | "admin") {
   const [count, setCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const channelRef = useRef(
     `unread-msg-${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
@@ -134,6 +135,8 @@ export function useUnreadMessageCount(role: "user" | "admin") {
         setCount(unread);
       } catch {
         // ignore
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     };
 
@@ -159,5 +162,5 @@ export function useUnreadMessageCount(role: "user" | "admin") {
     };
   }, [role]);
 
-  return count;
+  return { count, isLoading };
 }
