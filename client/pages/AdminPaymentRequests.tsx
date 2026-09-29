@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, CircleAlert, LoaderCircle, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -50,8 +51,10 @@ export default function AdminPaymentRequests() {
     try {
       await updatePaymentRequestStatus(id, status);
       setRequests((current) => current.map((request) => request.id === id ? { ...request, status } : request));
+      toast.success(`Request marked as ${status}`);
     } catch (statusError) {
       setError(statusError instanceof Error ? statusError.message : "Unable to update request status.");
+      toast.error("Unable to update request status.");
     }
   };
 

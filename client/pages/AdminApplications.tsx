@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 import {
   BadgeCheck,
   CheckCircle2,
@@ -148,8 +149,10 @@ export default function AdminApplications() {
       const updated = { ...selectedApplication, status: value };
       setSelectedApplication(updated);
       setApplications((current) => current.map((a) => (a.id === updated.id ? updated : a)));
+      toast.success(`Application marked as ${value}`);
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Unable to update application status.");
+      toast.error("Unable to update application status.");
     } finally {
       setIsUpdating(false);
     }
@@ -164,8 +167,10 @@ export default function AdminApplications() {
       const updated = { ...selectedApplication, verificationStatus: value };
       setSelectedApplication(updated);
       setApplications((current) => current.map((a) => (a.id === updated.id ? updated : a)));
+      toast.success(`Verification status set to ${value}`);
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Unable to update verification status.");
+      toast.error("Unable to update verification status.");
     } finally {
       setIsUpdating(false);
     }

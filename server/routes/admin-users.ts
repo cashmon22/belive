@@ -1,6 +1,7 @@
 import type { Request, RequestHandler } from "express";
 import type { User } from "@supabase/supabase-js";
 import { createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
+import { notifyUser } from "../lib/notifications";
 import type { AdminUser, AdminUserStatus } from "../../shared/admin-users";
 
 async function getAdminUser(req: Request, res: Parameters<RequestHandler>[1]) {
@@ -113,6 +114,17 @@ export const updateAdminUserStatus: RequestHandler = async (req, res) => {
     res.status(500).json({ error: "Unable to update account status." });
     return;
   }
+
+  void notifyUser({
+    userId,
+    type: "balance_adjusted",
+    title: status === "Suspended" ? "Account Suspended" : "Account Reactivated",
+    message:
+      status === "Suspended"
+        ? "Your account has been suspended. Please contact support for assistance."
+        : "Your account has been reactivated. You can resume using the platform.",
+    link: "/dashboard",
+  });
 
   res.json(toAdminUser(data.user));
 };

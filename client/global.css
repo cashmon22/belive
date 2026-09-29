@@ -178,6 +178,38 @@
   }
 }
 
+@layer utilities {
+  /* Smooth, professional micro-interactions */
+  .btn-press {
+    @apply transition-transform duration-100 active:scale-[0.97];
+  }
+
+  .card-hover {
+    @apply transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_28px_rgba(20,36,52,0.08)];
+  }
+
+  .fade-in {
+    animation: fadeInUp 0.25s ease-out both;
+  }
+
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* Visible, accessible focus states for keyboard users */
+:focus-visible {
+  outline: 2px solid #ff9900;
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after {

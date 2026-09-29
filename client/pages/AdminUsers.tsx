@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { ArrowDownCircle, ArrowUpCircle, Plus, Minus, Search, ShieldCheck, UserRound, Wallet, X } from "lucide-react";
 import type { AdminUser, AdminUserStatus } from "@shared/admin-users";
 import type { BalanceTransaction } from "@shared/admin-balance";
@@ -96,8 +97,10 @@ export default function AdminUsers() {
     try {
       if (balanceAction === "add") {
         await addUserBalance(selectedUser.id, { amount, note: noteInput.trim() || undefined });
+        toast.success(`$${amount.toFixed(2)} added to balance`);
       } else {
         await removeUserBalance(selectedUser.id, { amount, note: noteInput.trim() || undefined });
+        toast.success(`$${amount.toFixed(2)} removed from balance`);
       }
       setBalanceAction(null);
       setAmountInput("");
@@ -105,6 +108,7 @@ export default function AdminUsers() {
       await loadBalanceData(selectedUser.id);
     } catch (err) {
       setBalanceError(err instanceof Error ? err.message : "Unable to update balance.");
+      toast.error("Unable to update balance.");
     } finally {
       setBalanceSubmitting(false);
     }
@@ -118,8 +122,10 @@ export default function AdminUsers() {
       const updatedUser = await updateAdminUserStatus(selectedUser.id, status);
       setSelectedUser(updatedUser);
       setUsers((current) => current.map((user) => user.id === updatedUser.id ? updatedUser : user));
+      toast.success(`Account ${status === "Suspended" ? "suspended" : "reactivated"}`);
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Unable to update account status.");
+      toast.error("Unable to update account status.");
     } finally {
       setIsUpdating(false);
     }

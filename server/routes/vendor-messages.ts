@@ -1,7 +1,7 @@
 import type { Request, RequestHandler } from "express";
 import type { User } from "@supabase/supabase-js";
 import { createAuthenticatedSupabaseClient, createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
-import { notifyAdmins } from "../lib/notifications";
+import { notifyAdmins, notifyUser } from "../lib/notifications";
 import type {
   VendorConversation,
   VendorMessage,
@@ -322,6 +322,24 @@ export const sendMessage: RequestHandler = async (req, res) => {
       link: "/admin/messages",
       relatedId: req.params.id,
     });
+  }
+
+  // Notify the user when an admin replies (prevents notification spam)
+  if (admin) {
+    const wasUserUnreadZero = (conversation as { user_unread_count?: number }).user_unread_count === 0;
+    if (wasUserUnreadZero) {
+      const userId = (conversation as { user_id?: string }).user_id;
+      if (userId) {
+        void notifyUser({
+          userId,
+          type: "new_message",
+          title: "New Message",
+          message: "You have received a new message from the admin team.",
+          link: "/dashboard",
+          relatedId: req.params.id,
+        });
+      }
+    }
   }
 
   res.status(201).json(mapMessage(message));

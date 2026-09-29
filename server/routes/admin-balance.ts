@@ -1,6 +1,7 @@
 import type { Request, RequestHandler } from "express";
 import type { User } from "@supabase/supabase-js";
 import { createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
+import { notifyUser } from "../lib/notifications";
 import type {
   AdjustBalanceInput,
   BalanceTransaction,
@@ -116,6 +117,14 @@ export const addUserBalance: RequestHandler = async (req, res) => {
     return;
   }
 
+  void notifyUser({
+    userId,
+    type: "balance_adjusted",
+    title: "Balance Updated",
+    message: `Your balance was increased by $${amount.toFixed(2)}.`,
+    link: "/dashboard",
+  });
+
   res.status(200).json(mapTransaction(data as unknown as Record<string, unknown>));
 };
 
@@ -153,6 +162,14 @@ export const removeUserBalance: RequestHandler = async (req, res) => {
     res.status(500).json({ error: "Unable to remove balance." });
     return;
   }
+
+  void notifyUser({
+    userId,
+    type: "balance_adjusted",
+    title: "Balance Updated",
+    message: `Your balance was decreased by $${amount.toFixed(2)}.`,
+    link: "/dashboard",
+  });
 
   res.status(200).json(mapTransaction(data as unknown as Record<string, unknown>));
 };
