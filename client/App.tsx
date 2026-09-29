@@ -30,6 +30,7 @@ import AdminDevices from "./pages/AdminDevices";
 import AdminDeviceRequests from "./pages/AdminDeviceRequests";
 import AdminMessages from "./pages/AdminMessages";
 import NotFound from "./pages/NotFound";
+import AdminRoute from "./components/AdminRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./lib/auth";
 
@@ -94,6 +95,7 @@ function AnimatedRoutes() {
             <Route path="/trusted-vendor/request-payment" element={<PaymentRequest />} />
             <Route path="/trusted-vendor/payment-instructions" element={<PaymentInstructions />} />
             <Route path="/trusted-vendor/requests" element={<PaymentRequests />} />
+            <Route element={<AdminRoute />}>
             <Route path="/admin/payment-requests" element={<AdminPaymentRequests />} />
             <Route path="/admin" element={<AdminPanel />}>
               <Route index element={<AdminDashboard />} />
@@ -102,6 +104,7 @@ function AnimatedRoutes() {
               <Route path="device-requests" element={<AdminDeviceRequests />} />
               <Route path="messages" element={<AdminMessages />} />
               <Route path="devices" element={<AdminDevices />} />
+            </Route>
             </Route>
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -77,6 +77,7 @@ export const getUserBalance: RequestHandler = async (req, res) => {
     .maybeSingle();
 
   if (error) {
+    console.error("[api] Unable to load user balance.", error);
     res.status(500).json({ error: "Unable to load user balance." });
     return;
   }
@@ -113,6 +114,7 @@ export const addUserBalance: RequestHandler = async (req, res) => {
   });
 
   if (error) {
+    console.error("[api] Unable to add balance.", error);
     res.status(500).json({ error: "Unable to add balance." });
     return;
   }
@@ -159,6 +161,7 @@ export const removeUserBalance: RequestHandler = async (req, res) => {
       res.status(422).json({ error: "Insufficient balance. The user's balance cannot go negative." });
       return;
     }
+    console.error("[api] Unable to remove balance.", error);
     res.status(500).json({ error: "Unable to remove balance." });
     return;
   }
@@ -190,6 +193,7 @@ export const listBalanceTransactions: RequestHandler = async (req, res) => {
     .limit(50);
 
   if (error) {
+    console.error("[api] Unable to load balance history.", error);
     res.status(500).json({ error: "Unable to load balance history." });
     return;
   }

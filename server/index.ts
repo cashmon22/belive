@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { handleProgramStatus } from "./routes/program";
+import { getAdminDashboardStats } from "./routes/admin-dashboard";
 import {
   createPaymentRequest,
   deletePaymentRequest,
@@ -66,6 +67,7 @@ export function createServer() {
     updatePaymentRequestStatus,
   );
   app.delete("/api/admin/payment-requests/:id", deletePaymentRequest);
+  app.get("/api/admin/dashboard-stats", getAdminDashboardStats);
   app.get("/api/admin/users", listAdminUsers);
   app.get("/api/admin/users/:id", getAdminUserDetails);
   app.patch("/api/admin/users/:id/status", updateAdminUserStatus);

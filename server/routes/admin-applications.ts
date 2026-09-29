@@ -137,6 +137,7 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
 
   if (error) {
     console.error("[applications] Insert failed for submission_id=%s:", applicationId, error.message, error.code, error.details);
+    console.error("[api] Unable to save the application.", error);
     res.status(500).json({ error: "Unable to save the application." });
     return;
   }
@@ -159,6 +160,7 @@ async function listRows(req: Request, res: Parameters<RequestHandler>[1]) {
   if (!serviceSupabase) return null;
   const { data, error } = await serviceSupabase.from("applications").select(selectColumns).order("created_at", { ascending: false });
   if (error) {
+    console.error("[api] Unable to load applications.", error);
     res.status(500).json({ error: "Unable to load applications." });
     return null;
   }
@@ -201,6 +203,7 @@ export const updateAdminApplicationStatus: RequestHandler = async (req, res) => 
   }
   const { error } = await serviceSupabase.from("applications").update({ status }).eq("submission_id", req.params.id);
   if (error) {
+    console.error("[api] Unable to update application status.", error);
     res.status(500).json({ error: "Unable to update application status." });
     return;
   }
@@ -218,6 +221,7 @@ export const updateAdminApplicationVerification: RequestHandler = async (req, re
   }
   const { error } = await serviceSupabase.from("applications").update({ verification_status: verificationStatus }).eq("submission_id", req.params.id);
   if (error) {
+    console.error("[api] Unable to update verification status.", error);
     res.status(500).json({ error: "Unable to update verification status." });
     return;
   }
