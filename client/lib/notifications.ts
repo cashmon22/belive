@@ -55,6 +55,7 @@ export function markAllNotificationsRead() {
 export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
   const channelRef = useRef(
     `notifications-rt-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
@@ -62,8 +63,9 @@ export function useNotifications() {
   const load = useCallback(async () => {
     try {
       setNotifications(await listNotifications());
+      setError(false);
     } catch {
-      // ignore — table may not exist yet
+      setError(true);
     } finally {
       setIsLoading(false);
     }
@@ -105,7 +107,7 @@ export function useNotifications() {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   }, []);
 
-  return { notifications, unreadCount, isLoading, markRead, markAllRead };
+  return { notifications, unreadCount, isLoading, error, retry: load, markRead, markAllRead };
 }
 
 /**
@@ -115,6 +117,7 @@ export function useNotifications() {
  */
 export function useUnreadMessageCount(role: "user" | "admin") {
   const [count, setCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
   const channelRef = useRef(
     `unread-msg-${role}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
   );
@@ -134,6 +137,8 @@ export function useUnreadMessageCount(role: "user" | "admin") {
         setCount(unread);
       } catch {
         // ignore
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
     };
 
@@ -159,5 +164,5 @@ export function useUnreadMessageCount(role: "user" | "admin") {
     };
   }, [role]);
 
-  return count;
+  return { count, isLoading };
 }

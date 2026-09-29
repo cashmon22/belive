@@ -20,6 +20,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { getAdminDashboardStats } from "@/lib/admin-dashboard";
 import NotificationCenter from "@/components/NotificationCenter";
+import { PageTransition } from "@/components/PageTransition";
 import { useUnreadMessageCount } from "@/lib/notifications";
 
 const navigation = [
@@ -128,7 +129,11 @@ export default function AdminPanel() {
           <div className="flex items-center gap-3"><button type="button" className="rounded-lg border border-slate-200 p-2 text-navy lg:hidden" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button><div><p className="hidden text-[10px] font-bold uppercase tracking-[0.18em] text-orange sm:block">Administrator workspace</p><h1 className="text-lg font-extrabold text-navy sm:mt-0.5 sm:text-xl">{location.pathname === "/admin" ? "Dashboard" : navigation.find((item) => item.href === location.pathname)?.label || "Admin Portal"}</h1></div></div>
           <div className="flex items-center gap-2 sm:gap-4"><button type="button" className="hidden rounded-lg border border-slate-200 p-2.5 text-slate-400 transition hover:border-orange/40 hover:text-orange sm:block" aria-label="Search"><Search size={17} /></button><NotificationCenter variant="admin" /><span className="hidden h-7 w-px bg-slate-200 sm:block" /><span className="flex h-9 w-9 items-center justify-center rounded-full bg-navy text-xs font-extrabold text-white">{initials}</span></div>
         </header>
-        <main className="mx-auto max-w-[1440px] px-4 py-7 sm:px-7 sm:py-9 lg:px-10 lg:py-11"><Outlet /></main>
+        <main className="mx-auto max-w-[1440px] px-4 py-7 sm:px-7 sm:py-9 lg:px-10 lg:py-11">
+          <PageTransition key={location.pathname}>
+            <Outlet />
+          </PageTransition>
+        </main>
       </div>
     </div>
   );

@@ -41,6 +41,7 @@ import ApprovedDeviceInstructions from "@/components/dashboard/ApprovedDeviceIns
 import MessagesSection from "@/components/dashboard/MessagesSection";
 import VendorChat from "@/components/dashboard/VendorChat";
 import NotificationCenter from "@/components/NotificationCenter";
+import { SkeletonMetricCard } from "@/components/skeletons";
 import { assignments, type Assignment } from "@/lib/assignments";
 import { useContributorEarnings } from "@/lib/earnings";
 import { useDeviceRequest } from "@/lib/use-device-request";
@@ -75,7 +76,7 @@ function DashboardLogo({ dark = false }: { dark?: boolean }) {
   );
 }
 
-function SidebarContent({ activeItem, onSelect, unreadMessages = 0 }: { activeItem: string; onSelect: (label: string) => void; unreadMessages?: number }) {
+function SidebarContent({ activeItem, onSelect, unreadMessages = 0, unreadLoading = false }: { activeItem: string; onSelect: (label: string) => void; unreadMessages?: number; unreadLoading?: boolean }) {
   return (
     <>
       <div className="border-b border-slate-200 px-5 py-5">
@@ -99,7 +100,8 @@ function SidebarContent({ activeItem, onSelect, unreadMessages = 0 }: { activeIt
                 <Icon size={16} strokeWidth={isActive ? 2.2 : 1.8} />
                 <span className="min-w-0 flex-1">{label}</span>
                 {label === "Assignments" && <span title={`${availableAssignments} assignments available`} aria-label={`${availableAssignments} assignments available`} role="img" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange text-[10px] font-extrabold text-navy">{availableAssignments}</span>}
-                {label === "Messages" && unreadMessages > 0 && <span title={`${unreadMessages} unread messages`} aria-label={`${unreadMessages} unread messages`} role="img" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange text-[10px] font-extrabold text-navy">{unreadMessages}</span>}
+                {label === "Messages" && unreadLoading && <span aria-hidden="true" className="h-5 w-5 shrink-0 animate-pulse rounded-full bg-slate-200" />}
+                {label === "Messages" && !unreadLoading && unreadMessages > 0 && <span title={`${unreadMessages} unread messages`} aria-label={`${unreadMessages} unread messages`} role="img" className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-orange text-[10px] font-extrabold text-navy">{unreadMessages}</span>}
                 {isActive && <ChevronRight size={14} />}
               </button>
             );
@@ -229,9 +231,9 @@ export default function Dashboard() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [chatRequest, setChatRequest] = useState<{ request: PaymentRequest; deviceName: string } | null>(null);
   const [today, setToday] = useState(() => new Date());
-  const { availableBalance, pendingEarnings, totalWithdrawn, paymentGatewayConfigured } = useContributorEarnings(session);
+  const { availableBalance, pendingEarnings, totalWithdrawn, paymentGatewayConfigured, isLoading: earningsLoading } = useContributorEarnings(session);
   const { request: deviceRequest, isLoading: deviceRequestLoading } = useDeviceRequest();
-  const unreadMessages = useUnreadMessageCount("user");
+  const { count: unreadMessages, isLoading: unreadLoading } = useUnreadMessageCount("user");
   const currentDate = useMemo(
     () => new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(today),
     [today],
@@ -309,11 +311,15 @@ export default function Dashboard() {
               type="button"
               onClick={() => selectNavItem("Earnings")}
               className="flex items-center gap-2 rounded-md px-2 py-1 text-left transition hover:bg-white/10"
-              aria-label={`Wallet balance: $${availableBalance.toFixed(2)}`}
+              aria-label={earningsLoading ? "Wallet balance loading" : `Wallet balance: $${availableBalance.toFixed(2)}`}
             >
               <Wallet size={16} className="shrink-0 text-orange" />
               <div className="leading-tight">
-                <p className="text-xs font-extrabold text-white">${availableBalance.toFixed(2)}</p>
+                {earningsLoading ? (
+                  <span className="block h-4 w-16 animate-pulse rounded bg-white/20" aria-hidden="true" />
+                ) : (
+                  <p className="text-xs font-extrabold text-white">${availableBalance.toFixed(2)}</p>
+                )}
                 <p className="text-[9px] text-white/50">
                   {paymentGatewayConfigured ? "Payment configured" : "Setup payment gateway"}
                 </p>
@@ -338,7 +344,7 @@ export default function Dashboard() {
 
       <div className="flex min-h-[calc(100vh-72px)]">
         <aside className="sticky top-[72px] hidden h-[calc(100vh-72px)] w-[250px] shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
-          <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} />
+          <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} unreadLoading={unreadLoading} />
         </aside>
 
         {mobileNavOpen && (
@@ -352,24 +358,22 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} />
+            <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} unreadLoading={unreadLoading} />
           </div>
         </aside>
 
         <main className="min-w-0 flex-1">
           <div className="mx-auto max-w-[1440px] px-4 py-7 sm:px-6 sm:py-9 lg:px-10 lg:py-10">
-            {deviceRequest?.status === "Approved" ? (
-              <div className="flex flex-col gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" role="status">
-                <div className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white"><CheckCircle2 size={19} /></span>
-                  <div>
-                    <h2 className="text-sm font-extrabold text-navy">{deviceRequest.deviceName}</h2>
-                    <p className="mt-1 max-w-[760px] text-xs leading-5 text-emerald-700">Your device request has been approved. A check will be mailed to your email within 48 hours.</p>
-                  </div>
+            {deviceRequestLoading ? (
+              <div className="flex items-center gap-4 rounded-xl border border-slate-200 bg-white p-4 sm:p-5" role="status" aria-live="polite">
+                <span className="h-10 w-10 shrink-0 animate-pulse rounded-lg bg-slate-200" />
+                <div className="flex-1 space-y-2">
+                  <span className="block h-4 w-40 animate-pulse rounded bg-slate-200" />
+                  <span className="block h-3 w-72 max-w-full animate-pulse rounded bg-slate-100" />
                 </div>
-                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white"><CheckCircle2 size={14} /> Approved</span>
+                <span className="h-7 w-24 shrink-0 animate-pulse rounded-md bg-slate-200" />
               </div>
-            ) : deviceRequest?.status === "Rejected" ? (
+            ) : deviceRequest?.status === "Approved" ? (
               <div className="flex flex-col gap-4 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" role="status">
                 <div className="flex items-start gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500 text-white"><X size={19} /></span>
@@ -446,9 +450,20 @@ export default function Dashboard() {
                     </div>
                   </section>
 
-                  <section className={`rounded-xl border p-5 shadow-card sm:p-6 ${deviceRequest?.status === "Approved" ? "border-emerald-200 bg-emerald/[0.03]" : deviceRequest?.status === "Rejected" ? "border-red-200 bg-red/[0.03]" : deviceRequest?.status === "Under Review" ? "border-amber-200 bg-amber/[0.03]" : "border-orange/30 bg-orange/[0.045]"}`}>
-                    <SectionHeading icon={MonitorCheck} eyebrow="Required setup" title="Device Authorization" action={deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status === "Rejected" ? "Rejected" : deviceRequest?.status === "Under Review" ? "Under Review" : "Action needed"} />
-                    {deviceRequest?.status === "Approved" ? (
+                  <section className={`rounded-xl border p-5 shadow-card sm:p-6 ${deviceRequestLoading ? "border-slate-200 bg-white" : deviceRequest?.status === "Approved" ? "border-emerald-200 bg-emerald/[0.03]" : deviceRequest?.status === "Rejected" ? "border-red-200 bg-red/[0.03]" : deviceRequest?.status === "Under Review" ? "border-amber-200 bg-amber/[0.03]" : "border-orange/30 bg-orange/[0.045]"}`}>
+                    <SectionHeading icon={MonitorCheck} eyebrow="Required setup" title="Device Authorization" action={deviceRequestLoading ? "Loading…" : deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status === "Rejected" ? "Rejected" : deviceRequest?.status === "Under Review" ? "Under Review" : "Action needed"} />
+                    {deviceRequestLoading ? (
+                      <div className="mt-5 space-y-3" role="status" aria-live="polite">
+                        <div className="flex items-center gap-3">
+                          <span className="h-11 w-11 shrink-0 animate-pulse rounded-lg bg-slate-200" />
+                          <div className="space-y-2">
+                            <span className="block h-4 w-32 animate-pulse rounded bg-slate-200" />
+                            <span className="block h-3 w-24 animate-pulse rounded bg-slate-100" />
+                          </div>
+                        </div>
+                        <span className="block h-10 w-full animate-pulse rounded-md bg-slate-100" />
+                      </div>
+                    ) : deviceRequest?.status === "Approved" ? (
                       <ApprovedDeviceInstructions deviceName={deviceRequest.deviceName} onMessageVendor={() => setChatRequest({ request: deviceRequest, deviceName: deviceRequest.deviceName })} />
                     ) : deviceRequest?.status === "Rejected" ? (
                       <>
