@@ -1,12 +1,20 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 const supabaseUrl =
-  process.env.VITE_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim();
+  process.env.SUPABASE_URL?.trim() || process.env.VITE_SUPABASE_URL?.trim();
 const supabasePublishableKey =
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
   process.env.SUPABASE_ANON_KEY?.trim() ||
   process.env.SUPABASE_PUBLISHABLE_KEY?.trim();
 const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+function getSupabaseUrl(): string {
+  if (!supabaseUrl) {
+    throw new Error("SUPABASE_URL is not configured");
+  }
+
+  return supabaseUrl;
+}
 
 const clientOptions = {
   auth: {
@@ -20,7 +28,7 @@ let _client: SupabaseClient | undefined;
 
 function getClient(): SupabaseClient {
   if (!_client) {
-    _client = createClient(supabaseUrl, supabasePublishableKey, clientOptions);
+    _client = createClient(getSupabaseUrl(), supabasePublishableKey, clientOptions);
   }
   return _client;
 }
@@ -37,7 +45,7 @@ export const supabase = new Proxy({} as SupabaseClient, {
 });
 
 export function createAuthenticatedSupabaseClient(accessToken: string) {
-  return createClient(supabaseUrl, supabasePublishableKey, {
+  return createClient(getSupabaseUrl(), supabasePublishableKey, {
     ...clientOptions,
     global: {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -50,5 +58,5 @@ export function createServiceRoleSupabaseClient() {
     throw new Error("SUPABASE_SERVICE_ROLE_KEY is not configured");
   }
 
-  return createClient(supabaseUrl, supabaseServiceRoleKey, clientOptions);
+  return createClient(getSupabaseUrl(), supabaseServiceRoleKey, clientOptions);
 }
