@@ -78,6 +78,10 @@ export default function AdminMessages() {
   const [isSending, setIsSending] = useState(false);
   const [newSupportOpen, setNewSupportOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  const previousSelectedIdRef = useRef<string | null>(null);
+  const draftRef = useRef("");
+  const chatLoadIdRef = useRef(0);
 
   const loadConversations = useCallback(async () => {
     setIsLoadingList(true);
@@ -101,9 +105,15 @@ export default function AdminMessages() {
         const newMessage = payload.new as { conversation_id: string; sender_role: string };
         if (newMessage.sender_role === "user") {
           void loadConversations();
-          if (selectedId === newMessage.conversation_id) {
+          if (selectedIdRef.current === newMessage.conversation_id) {
             void loadChat(newMessage.conversation_id);
           }
+        }
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "vendor_messages" }, (payload) => {
+        const updatedMessage = payload.new as { conversation_id: string };
+        if (selectedIdRef.current === updatedMessage.conversation_id) {
+          void loadChat(updatedMessage.conversation_id);
         }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "vendor_conversations" }, () => {
@@ -115,27 +125,50 @@ export default function AdminMessages() {
   }, [loadConversations, selectedId]);
 
   const loadChat = useCallback(async (id: string) => {
+    const loadId = ++chatLoadIdRef.current;
     setIsLoadingChat(true);
     try {
       const data = await getConversation(id);
+      if (selectedIdRef.current !== id || chatLoadIdRef.current !== loadId) return;
       setSelectedConversation(data);
-      setMessages(data.messages);
+      setMessages((current) => {
+        const byId = new Map(current.map((message) => [message.id, message]));
+        for (const message of data.messages) byId.set(message.id, message);
+        return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      });
       await markConversationRead(id);
-      void loadConversations();
+      if (selectedIdRef.current === id) void loadConversations();
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Unable to load conversation.");
+      if (selectedIdRef.current === id && chatLoadIdRef.current === loadId) {
+        setError(loadError instanceof Error ? loadError.message : "Unable to load conversation.");
+      }
     } finally {
-      setIsLoadingChat(false);
+      if (chatLoadIdRef.current === loadId) setIsLoadingChat(false);
     }
   }, [loadConversations]);
 
   useEffect(() => {
+    selectedIdRef.current = selectedId;
+    chatLoadIdRef.current++;
+    if (previousSelectedIdRef.current !== selectedId) {
+      setDraft("");
+      draftRef.current = "";
+      setMessages([]);
+      setSelectedConversation(null);
+      previousSelectedIdRef.current = selectedId;
+    }
     if (selectedId) void loadChat(selectedId);
     else {
       setSelectedConversation(null);
       setMessages([]);
+      setDraft("");
+      draftRef.current = "";
     }
   }, [selectedId, loadChat]);
+
+  const activeConversation = selectedConversation?.id === selectedId
+    ? selectedConversation
+    : conversations.find((conversation) => conversation.id === selectedId) ?? null;
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -162,15 +195,24 @@ export default function AdminMessages() {
 
   const handleSend = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedId || !draft.trim()) return;
+    const conversationId = selectedId;
+    const body = draft.trim();
+    if (!conversationId || !body) return;
     setIsSending(true);
     try {
-      const msg = await sendMessage(selectedId, draft.trim());
-      setMessages((prev) => [...prev, msg]);
-      setDraft("");
+      const msg = await sendMessage(conversationId, body);
+      if (selectedIdRef.current === conversationId) {
+        setMessages((current) => current.some((message) => message.id === msg.id) ? current : [...current, msg]);
+        if (draftRef.current === body) {
+          setDraft("");
+          draftRef.current = "";
+        }
+      }
       void loadConversations();
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : "Unable to send message.");
+      if (selectedIdRef.current === conversationId) {
+        setError(sendError instanceof Error ? sendError.message : "Unable to send message.");
+      }
     } finally {
       setIsSending(false);
     }
@@ -255,7 +297,7 @@ export default function AdminMessages() {
               <ul className="divide-y divide-slate-100">
                 {filteredConversations.map((conv) => (
                   <li key={conv.id}>
-                    <button type="button" onClick={() => setSelectedId(conv.id)}
+                    <button type="button" onClick={() => { selectedIdRef.current = conv.id; setIsLoadingChat(true); setSelectedId(conv.id); }}
                       className={`flex w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-[#fbfcfd] ${selectedId === conv.id ? "bg-orange/5" : ""}`}>
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy text-white">
                         <ConversationIcon type={conv.conversationType} />
@@ -292,38 +334,38 @@ export default function AdminMessages() {
 
         {/* Chat panel */}
         <div className={`flex flex-col ${selectedId ? "flex" : "hidden lg:flex"}`}>
-          {selectedConversation ? (
+          {activeConversation ? (
             <>
               {/* Chat header */}
               <div className="border-b border-slate-100 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
-                    <button type="button" onClick={() => setSelectedId(null)} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-navy lg:hidden" aria-label="Back to conversations">
+                    <button type="button" onClick={() => { selectedIdRef.current = null; setSelectedId(null); }} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-navy lg:hidden" aria-label="Back to conversations">
                       <ArrowLeft size={18} />
                     </button>
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy text-white">
-                      <ConversationIcon type={selectedConversation.conversationType} />
+                      <ConversationIcon type={activeConversation.conversationType} />
                     </span>
                     <div>
                       <p className="text-sm font-extrabold text-navy">
-                        {selectedConversation.conversationType === "support" ? "Support" : (selectedConversation.deviceName ?? "Vendor")}
+                        {activeConversation.conversationType === "support" ? "Support" : (activeConversation.deviceName ?? "Vendor")}
                       </p>
-                      <p className="text-xs text-slate-500">{selectedConversation.userName} · {selectedConversation.userEmail}</p>
+                      <p className="text-xs text-slate-500">{activeConversation.userName} · {activeConversation.userEmail}</p>
                     </div>
                   </div>
-                  <button type="button" onClick={() => void loadConversations()} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-orange" aria-label="Refresh">
+                  <button type="button" onClick={() => { void loadConversations(); if (selectedId) void loadChat(selectedId); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-orange" aria-label="Refresh">
                     <RefreshCw size={15} />
                   </button>
                 </div>
                 {/* Device context header (vendor only) */}
-                {selectedConversation.conversationType === "vendor" && selectedConversation.deviceName && (
+                {activeConversation.conversationType === "vendor" && activeConversation.deviceName && (
                   <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-2.5">
                     <ShieldCheck size={14} className="text-orange" />
-                    <span className="text-xs font-bold text-navy">{selectedConversation.deviceName}</span>
-                    <span className="text-xs text-slate-400">{selectedConversation.deviceModel}</span>
+                    <span className="text-xs font-bold text-navy">{activeConversation.deviceName}</span>
+                    <span className="text-xs text-slate-400">{activeConversation.deviceModel}</span>
                     <span className="text-slate-300">·</span>
-                    <span className="text-[10px] font-extrabold text-slate-500">{selectedConversation.referenceNumber}</span>
-                    {selectedConversation.requestStatus && <RequestStatusBadge status={selectedConversation.requestStatus} />}
+                    <span className="text-[10px] font-extrabold text-slate-500">{activeConversation.referenceNumber}</span>
+                    {activeConversation.requestStatus && <RequestStatusBadge status={activeConversation.requestStatus} />}
                   </div>
                 )}
               </div>
@@ -361,7 +403,7 @@ export default function AdminMessages() {
               {/* Composer */}
               <div className="border-t border-slate-100 p-4">
                 <form className="flex items-end gap-2" onSubmit={handleSend}>
-                  <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={1} placeholder="Type your reply..."
+                  <textarea value={draft} onChange={(e) => { draftRef.current = e.target.value; setDraft(e.target.value); }} rows={1} placeholder="Type your reply..."
                     onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleSend(e as unknown as FormEvent<HTMLFormElement>); } }}
                     className="max-h-32 min-h-[44px] flex-1 resize-none rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-3 text-sm text-navy outline-none transition placeholder:text-slate-400 focus:border-orange focus:ring-2 focus:ring-orange/10" />
                   <button type="submit" disabled={isSending || !draft.trim()}

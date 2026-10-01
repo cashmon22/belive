@@ -212,7 +212,7 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
     return;
   }
 
-  void notifyAdmins({
+  await notifyAdmins({
     type: "new_device_request",
     title: "New Device Request",
     message: `${body.fullLegalName} submitted a payment/device request for ${device.name}.`,
@@ -321,11 +321,20 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
     return;
   }
 
+  const { error: conversationStatusError } = await serviceSupabase
+    .from("vendor_conversations")
+    .update({ request_status: status })
+    .eq("payment_request_id", req.params.id)
+    .eq("conversation_type", "vendor");
+  if (conversationStatusError) {
+    console.error("[api] Unable to synchronize conversation request status.", conversationStatusError);
+  }
+
   // Notify the user when their device request status changes
   if (existingRecord?.user_id) {
     const deviceName = existingRecord.device_name ?? "your device";
     if (status === "Approved") {
-      void notifyUser({
+      await notifyUser({
         userId: existingRecord.user_id,
         type: "device_approved",
         title: "Device Request Approved",
@@ -334,7 +343,7 @@ export const updatePaymentRequestStatus: RequestHandler = async (req, res) => {
         relatedId: String(req.params.id),
       });
     } else if (status === "Rejected") {
-      void notifyUser({
+      await notifyUser({
         userId: existingRecord.user_id,
         type: "device_rejected",
         title: "Device Request Rejected",

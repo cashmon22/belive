@@ -380,15 +380,15 @@ export default function Dashboard() {
                 <span className="h-7 w-24 shrink-0 animate-pulse rounded-md bg-slate-200" />
               </div>
             ) : deviceRequest?.status === "Approved" ? (
-              <div className="flex flex-col gap-4 rounded-xl border border-red-200 bg-red-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" role="status">
+              <div className="flex flex-col gap-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" role="status">
                 <div className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-500 text-white"><X size={19} /></span>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-white"><CheckCircle2 size={19} /></span>
                   <div>
                     <h2 className="text-sm font-extrabold text-navy">{deviceRequest.deviceName}</h2>
-                    <p className="mt-1 max-w-[760px] text-xs leading-5 text-red-700">Your device request has been rejected.{deviceRequest.rejectionReason ? ` Reason: ${deviceRequest.rejectionReason}` : ""}</p>
+                    <p className="mt-1 max-w-[760px] text-xs leading-5 text-emerald-700">Your device request has been approved.</p>
                   </div>
                 </div>
-                <Link to="/trusted-vendor" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-navy px-4 py-3 text-xs font-extrabold text-white transition hover:bg-[#1d3042]"><ArrowRight size={15} /> Submit New Request</Link>
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-2 text-xs font-extrabold text-white"><CheckCircle2 size={14} /> Approved</span>
               </div>
             ) : deviceRequest?.status === "Under Review" ? (
               <div className="flex flex-col gap-4 rounded-xl border border-amber-200 bg-amber-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" role="status">

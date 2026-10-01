@@ -69,7 +69,22 @@ export async function notifyAdmins(params: NotifyParams) {
 
     if (adminIds.length === 0) return;
 
-    const rows = adminIds.map((userId) => ({
+    const existingUserIds = new Set<string>();
+    if (params.relatedId && (params.type === "new_application" || params.type === "new_device_request")) {
+      const { data: existing, error: lookupError } = await serviceSupabase
+        .from("notifications")
+        .select("user_id")
+        .eq("recipient_role", "admin")
+        .eq("type", params.type)
+        .eq("related_id", params.relatedId);
+      if (lookupError) {
+        console.error("[notifyAdmins] Failed to check existing notifications:", lookupError.message);
+      } else {
+        for (const notification of existing ?? []) existingUserIds.add(notification.user_id);
+      }
+    }
+
+    const rows = adminIds.filter((userId) => !existingUserIds.has(userId)).map((userId) => ({
       user_id: userId,
       recipient_role: "admin",
       type: params.type,
@@ -79,6 +94,8 @@ export async function notifyAdmins(params: NotifyParams) {
       related_id: params.relatedId ?? null,
       is_read: false,
     }));
+
+    if (rows.length === 0) return;
 
     const { error: insertError } = await serviceSupabase
       .from("notifications")
