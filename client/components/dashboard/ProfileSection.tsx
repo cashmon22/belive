@@ -1,129 +1,121 @@
+import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import {
-  BadgeCheck,
-  CalendarDays,
-  CreditCard,
-  IdCard,
-  Mail,
-  ShieldCheck,
-  UserRound,
-} from "lucide-react";
+import { BadgeCheck, Bell, CalendarDays, CheckCircle2, Mail, Save, ShieldCheck, UserRound } from "lucide-react";
+import { showInAppNotifications } from "@/lib/account-preferences";
+import { supabase } from "@/lib/supabase";
 
 interface ProfileSectionProps {
   session: Session | null;
-  contributorId: string;
+  applicationStatus: string;
+  deviceStatus: string;
+  paymentConfigured: boolean;
+  isLoading: boolean;
 }
 
-export default function ProfileSection({
-  session,
-  contributorId,
-}: ProfileSectionProps) {
-  const email = session?.user.email ?? "—";
+function savedFullName(session: Session | null) {
+  const value = session?.user.user_metadata?.full_name;
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function savedPreferences(session: Session | null) {
+  const value = session?.user.user_metadata?.contributor_preferences;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+export default function ProfileSection({ session, applicationStatus, deviceStatus, paymentConfigured, isLoading }: ProfileSectionProps) {
+  const [fullName, setFullName] = useState(() => savedFullName(session));
+  const [savedName, setSavedName] = useState(() => savedFullName(session));
+  const [showNotifications, setShowNotifications] = useState(() => showInAppNotifications(session?.user.user_metadata));
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [savedMessage, setSavedMessage] = useState("");
+  const email = session?.user.email ?? "";
   const memberSince = session?.user.created_at
-    ? new Intl.DateTimeFormat("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric",
-      }).format(new Date(session.user.created_at))
-    : "—";
+    ? new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(new Date(session.user.created_at))
+    : "";
+
+  useEffect(() => {
+    setFullName(savedFullName(session));
+    setSavedName(savedFullName(session));
+    setShowNotifications(showInAppNotifications(session?.user.user_metadata));
+  }, [session?.user.id, session?.user.user_metadata]);
+
+  const completedFields = Number(Boolean(email)) + Number(Boolean(savedName));
+  const missingFields = [!email ? "Email address" : "", !savedName ? "Full name" : ""].filter(Boolean);
+
+  const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!session || isSaving) return;
+    setIsSaving(true);
+    setSaveError("");
+    setSavedMessage("");
+    const preferences = savedPreferences(session);
+    const { data, error } = await supabase.auth.updateUser({
+      data: {
+        ...session.user.user_metadata,
+        full_name: fullName.trim(),
+        contributor_preferences: {
+          ...preferences,
+          showInAppNotifications: showNotifications,
+        },
+      },
+    });
+    if (error) {
+      setSaveError("Unable to save your profile changes. Please try again.");
+    } else {
+      const persistedName = typeof data.user.user_metadata?.full_name === "string" ? data.user.user_metadata.full_name.trim() : "";
+      const persistedPreference = showInAppNotifications(data.user.user_metadata);
+      setFullName(persistedName);
+      setSavedName(persistedName);
+      setShowNotifications(persistedPreference);
+      setSavedMessage("Your profile and preferences have been saved.");
+    }
+    setIsSaving(false);
+  };
 
   return (
     <div>
       <div className="border-b border-slate-200 pb-6">
-        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">
-          Contributor workspace
-        </p>
-        <h1 className="mt-2 text-[26px] font-extrabold tracking-[-0.04em] text-navy sm:text-[32px]">
-          Profile
-        </h1>
-        <p className="mt-2 max-w-[600px] text-sm leading-6 text-slate-500">
-          View your contributor profile and account information.
-        </p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Contributor workspace</p>
+        <h1 className="mt-2 text-[26px] font-extrabold tracking-[-0.04em] text-navy sm:text-[32px]">Profile</h1>
+        <p className="mt-2 max-w-[600px] text-sm leading-6 text-slate-500">Keep your account details up to date and manage your contributor preferences.</p>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_1fr]">
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-orange/10 text-orange">
-              <UserRound size={17} />
-            </span>
-            <h2 className="text-sm font-extrabold text-navy">Account Details</h2>
-          </div>
+      <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6" aria-labelledby="profile-completion-title">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="text-[10px] font-bold uppercase tracking-[0.15em] text-orange">Profile completion</p><h2 id="profile-completion-title" className="mt-1 text-sm font-extrabold text-navy">{completedFields} of 2 important details complete</h2></div>
+          <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-extrabold ${missingFields.length ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}><CheckCircle2 size={13} />{missingFields.length ? `${missingFields.length} item${missingFields.length === 1 ? "" : "s"} to complete` : "Profile complete"}</span>
+        </div>
+        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="Profile completion" aria-valuemin={0} aria-valuemax={2} aria-valuenow={completedFields}><div className="h-full rounded-full bg-orange transition-all" style={{ width: `${completedFields * 50}%` }} /></div>
+        {missingFields.length > 0 && <p className="mt-3 text-xs text-slate-500">Still needed: <span className="font-bold text-navy">{missingFields.join(", ")}</span></p>}
+      </section>
+
+      <form className="mt-5 grid gap-5 lg:grid-cols-2" onSubmit={handleSave}>
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6" aria-labelledby="account-details-title">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-orange/10 text-orange"><UserRound size={17} /></span><h2 id="account-details-title" className="text-sm font-extrabold text-navy">Account Details</h2></div>
           <div className="mt-5 space-y-4">
-            <div className="flex items-center gap-3">
-              <Mail size={16} className="shrink-0 text-slate-400" />
-              <div>
-                <p className="text-[10px] font-semibold text-slate-400">Email</p>
-                <p className="mt-0.5 text-xs font-bold text-navy">{email}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <IdCard size={16} className="shrink-0 text-slate-400" />
-              <div>
-                <p className="text-[10px] font-semibold text-slate-400">
-                  Contributor ID
-                </p>
-                <p className="mt-0.5 text-xs font-bold text-navy">
-                  {contributorId}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <BadgeCheck size={16} className="shrink-0 text-slate-400" />
-              <div>
-                <p className="text-[10px] font-semibold text-slate-400">
-                  Contributor level
-                </p>
-                <p className="mt-0.5 text-xs font-bold text-navy">
-                  Standard Contributor
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <CalendarDays size={16} className="shrink-0 text-slate-400" />
-              <div>
-                <p className="text-[10px] font-semibold text-slate-400">
-                  Member since
-                </p>
-                <p className="mt-0.5 text-xs font-bold text-navy">{memberSince}</p>
-              </div>
-            </div>
+            <label className="block"><span className="mb-1.5 block text-xs font-bold text-navy">Full name</span><input type="text" autoComplete="name" maxLength={120} value={fullName} onChange={(event) => { setFullName(event.target.value); setSavedMessage(""); }} className="h-11 w-full rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 text-sm text-navy outline-none transition focus:border-orange focus:ring-2 focus:ring-orange/10" placeholder="Add your full name" /></label>
+            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-3"><Mail size={16} className="shrink-0 text-slate-400" /><div className="min-w-0"><p className="text-[10px] font-semibold text-slate-400">Email address</p><p className="mt-0.5 truncate text-xs font-bold text-navy">{email || "Not available"}</p></div></div>
+            {memberSince && <div className="flex items-center gap-3"><CalendarDays size={16} className="shrink-0 text-slate-400" /><div><p className="text-[10px] font-semibold text-slate-400">Member since</p><p className="mt-0.5 text-xs font-bold text-navy">{memberSince}</p></div></div>}
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6">
-          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-            <span className="flex h-9 w-9 items-center justify-center rounded-md bg-orange/10 text-orange">
-              <ShieldCheck size={17} />
-            </span>
-            <h2 className="text-sm font-extrabold text-navy">Account Status</h2>
-          </div>
-          <div className="mt-5 space-y-4">
-            <div className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <span className="text-xs font-bold text-emerald-700">
-                Account
-              </span>
-              <span className="flex items-center gap-2 text-xs font-extrabold text-emerald-700">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" /> Approved
-              </span>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-orange/30 bg-orange/[0.06] px-4 py-3">
-              <span className="text-xs font-bold text-orange">Device</span>
-              <span className="flex items-center gap-2 text-xs font-extrabold text-orange">
-                <span className="h-2 w-2 rounded-full bg-orange" /> Not Recognized
-              </span>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-[#fbfcfd] px-4 py-3">
-              <span className="flex items-center gap-2 text-xs font-bold text-slate-500">
-                <CreditCard size={14} /> Payment gateway
-              </span>
-              <span className="text-xs font-bold text-slate-400">
-                Not configured
-              </span>
-            </div>
-          </div>
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6" aria-labelledby="account-preferences-title">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-orange/10 text-orange"><Bell size={17} /></span><h2 id="account-preferences-title" className="text-sm font-extrabold text-navy">Account Preferences</h2></div>
+          <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-4 transition hover:border-orange/40"><input type="checkbox" checked={showNotifications} onChange={(event) => { setShowNotifications(event.target.checked); setSavedMessage(""); }} className="mt-0.5 h-4 w-4 accent-orange" /><span><span className="block text-xs font-bold text-navy">Show in-app notifications</span><span className="mt-1 block text-xs leading-5 text-slate-500">Display account alerts in the notification center. Turning this off hides the center without deleting notifications.</span></span></label>
+          <div className="mt-4 flex items-center gap-2 rounded-lg bg-[#fbfcfd] p-3 text-xs text-slate-500"><ShieldCheck size={15} className="shrink-0 text-orange" />Email and message delivery settings are not available for this account.</div>
         </section>
-      </div>
+
+        {!isLoading && <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6 lg:col-span-2" aria-labelledby="account-status-title">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-orange/10 text-orange"><BadgeCheck size={17} /></span><h2 id="account-status-title" className="text-sm font-extrabold text-navy">Account Status</h2></div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-3"><div className="flex items-center justify-between rounded-lg border border-slate-200 bg-[#fbfcfd] px-4 py-3"><span className="text-xs font-bold text-slate-500">Account</span><span className="text-xs font-extrabold text-navy">{applicationStatus}</span></div><div className="flex items-center justify-between rounded-lg border border-slate-200 bg-[#fbfcfd] px-4 py-3"><span className="text-xs font-bold text-slate-500">Device</span><span className="text-xs font-extrabold text-navy">{deviceStatus}</span></div><div className="flex items-center justify-between rounded-lg border border-slate-200 bg-[#fbfcfd] px-4 py-3"><span className="text-xs font-bold text-slate-500">Payment gateway</span><span className="text-xs font-extrabold text-navy">{paymentConfigured ? "Configured" : "Not configured"}</span></div></div>
+        </section>}
+
+        {(saveError || savedMessage) && <div className={`rounded-lg border p-3 text-sm lg:col-span-2 ${saveError ? "border-red-200 bg-red-50 text-red-800" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`} role={saveError ? "alert" : "status"}>{saveError || savedMessage}</div>}
+        <div className="flex justify-end lg:col-span-2"><button type="submit" disabled={isSaving || !session} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-navy px-5 text-xs font-extrabold text-white transition hover:bg-navy/90 disabled:cursor-not-allowed disabled:opacity-60"><Save size={15} />{isSaving ? "Saving…" : "Save Changes"}</button></div>
+      </form>
     </div>
   );
 }

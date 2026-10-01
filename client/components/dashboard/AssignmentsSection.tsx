@@ -14,8 +14,7 @@ import {
 } from "@/lib/assignments";
 
 interface AssignmentsSectionProps {
-  deviceVerified: boolean;
-  onStartTask: (assignment: Assignment) => void;
+  onSelectAssignment: (assignment: Assignment) => void;
 }
 
 const statusStyles: Record<string, string> = {
@@ -25,8 +24,7 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function AssignmentsSection({
-  deviceVerified,
-  onStartTask,
+  onSelectAssignment,
 }: AssignmentsSectionProps) {
   const [activeCategory, setActiveCategory] = useState<AssignmentCategory | "All">(
     "All",
@@ -130,11 +128,11 @@ export default function AssignmentsSection({
               <button
                 type="button"
                 disabled={assignment.status === "Full"}
-                onClick={() => onStartTask(assignment)}
+                onClick={() => onSelectAssignment(assignment)}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-navy px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-[#1d3042] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <PlayCircle size={15} className="text-orange" />
-                {assignment.status === "Full" ? "Slots Full" : "Start Task"}
+                {assignment.status === "Full" ? "Slots Full" : "View Details"}
               </button>
             </div>
           </div>

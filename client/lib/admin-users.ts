@@ -1,6 +1,20 @@
 import type { AdminUser, AdminUsersResponse, AdminUserStatus } from "@shared/admin-users";
 import { apiRequest } from "./api-request";
 
+export interface CreatedAdminUser {
+  id: string;
+  email: string;
+  name: string;
+  createdAt: string;
+}
+
+export function createAdminUser(input: { email: string; password: string; fullName?: string }) {
+  return apiRequest<CreatedAdminUser>("/api/admin/users", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
 export function listAdminUsers(search: string) {
   const query = search.trim() ? `?search=${encodeURIComponent(search.trim())}` : "";
   return apiRequest<AdminUsersResponse>(`/api/admin/users${query}`);

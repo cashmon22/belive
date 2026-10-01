@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 
 import AssignmentsSection from "@/components/dashboard/AssignmentsSection";
+import AssignmentDetailDialog from "@/components/dashboard/AssignmentDetailDialog";
 import MyTasksSection from "@/components/dashboard/MyTasksSection";
 import EarningsSection from "@/components/dashboard/EarningsSection";
 import ProfileSection from "@/components/dashboard/ProfileSection";
@@ -44,6 +45,7 @@ import VendorChat from "@/components/dashboard/VendorChat";
 import NotificationCenter from "@/components/NotificationCenter";
 import { SkeletonMetricCard } from "@/components/skeletons";
 import { assignments, type Assignment } from "@/lib/assignments";
+import { startContributorTask } from "@/lib/contributor-tasks";
 import { useContributorEarnings } from "@/lib/earnings";
 import { useDeviceRequest } from "@/lib/use-device-request";
 import { useUnreadMessageCount } from "@/lib/notifications";
@@ -229,6 +231,8 @@ export default function Dashboard() {
   const [trustedVendorOpen, setTrustedVendorOpen] = useState(false);
   const [deviceNotRecognizedOpen, setDeviceNotRecognizedOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+  const [isStartingTask, setIsStartingTask] = useState(false);
+  const [taskStartError, setTaskStartError] = useState("");
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [chatRequest, setChatRequest] = useState<{ request: PaymentRequest; deviceName: string } | null>(null);
   const [today, setToday] = useState(() => new Date());
@@ -240,6 +244,7 @@ export default function Dashboard() {
   const applicationStatus = applicationLoading ? "Loading…" : applicationError ? "Unavailable" : myApplication?.status ?? "Approved";
   const applicationTone = applicationStatus === "Approved" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : applicationStatus === "Rejected" ? "border-red-200 bg-red-50 text-red-700" : applicationStatus === "Under Review" ? "border-amber-200 bg-amber-50 text-amber-700" : "border-slate-200 bg-white text-slate-600";
   const applicationDot = applicationStatus === "Approved" ? "bg-emerald-500" : applicationStatus === "Rejected" ? "bg-red-500" : applicationStatus === "Under Review" ? "bg-amber-500" : "bg-slate-400";
+  const isEligibleToStart = !applicationLoading && !applicationError && applicationStatus === "Approved";
   const currentDate = useMemo(
     () => new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(today),
     [today],
@@ -279,6 +284,27 @@ export default function Dashboard() {
   const selectNavItem = (label: string) => {
     setMobileNavOpen(false);
     setActiveItem(label);
+  };
+
+  const handleStartSelectedAssignment = async () => {
+    if (!selectedAssignment || isStartingTask || applicationLoading || deviceRequestLoading) return;
+    setTaskStartError("");
+    if (!isEligibleToStart) return;
+    if (deviceRequest?.status !== "Approved") {
+      setDeviceNotRecognizedOpen(true);
+      return;
+    }
+
+    setIsStartingTask(true);
+    try {
+      await startContributorTask(selectedAssignment.id);
+      setSelectedAssignment(null);
+      setActiveItem("My Tasks");
+    } catch (startError) {
+      setTaskStartError(startError instanceof Error ? startError.message : "Unable to start this assignment.");
+    } finally {
+      setIsStartingTask(false);
+    }
   };
 
   useEffect(() => {
@@ -565,13 +591,12 @@ export default function Dashboard() {
             )}
             {activeItem === "Assignments" && (
               <AssignmentsSection
-                deviceVerified={deviceRequest?.status === "Approved"}
-                onStartTask={(a) => { setSelectedAssignment(a); setDeviceNotRecognizedOpen(true); }}
+                onSelectAssignment={(assignment) => { setSelectedAssignment(assignment); setTaskStartError(""); }}
               />
             )}
             {activeItem === "My Tasks" && <MyTasksSection />}
             {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} session={session} deviceVerified={deviceRequest?.status === "Approved"} onContactVendor={() => setTrustedVendorOpen(true)} />}
-            {activeItem === "Profile" && <ProfileSection session={session} contributorId={contributorId} />}
+            {activeItem === "Profile" && <ProfileSection session={session} applicationStatus={applicationStatus} deviceStatus={deviceRequestLoading ? "Loading…" : deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status ?? "Not Recognized"} paymentConfigured={paymentGatewayConfigured} isLoading={applicationLoading || deviceRequestLoading || earningsLoading} />}
             {activeItem === "Messages" && <MessagesSection />}
             {activeItem === "Support" && <SupportSection />}
 
@@ -582,7 +607,8 @@ export default function Dashboard() {
           </div>
         </main>
       </div>
-      {deviceNotRecognizedOpen && <DeviceNotRecognizedModal onClose={() => setDeviceNotRecognizedOpen(false)} onVerifyDevice={() => { setDeviceNotRecognizedOpen(false); navigate("/trusted-vendor"); }} />}
+      {selectedAssignment && <AssignmentDetailDialog assignment={selectedAssignment} isEligible={isEligibleToStart} eligibilityLoading={applicationLoading} deviceLoading={deviceRequestLoading} isStarting={isStartingTask} startError={taskStartError} onClose={() => setSelectedAssignment(null)} onStart={() => void handleStartSelectedAssignment()} />}
+      {deviceNotRecognizedOpen && <DeviceNotRecognizedModal onClose={() => setDeviceNotRecognizedOpen(false)} onVerifyDevice={() => { setDeviceNotRecognizedOpen(false); setSelectedAssignment(null); navigate("/trusted-vendor"); }} />}
       {trustedVendorOpen && <TrustedVendorModal onClose={() => setTrustedVendorOpen(false)} />}
       {chatRequest && (
         <VendorChat

@@ -10,6 +10,7 @@ import {
   updatePaymentRequestStatus,
 } from "./routes/payment-requests";
 import {
+  createAdminUser,
   deleteAdminUser,
   getAdminUserDetails,
   listAdminUsers,
@@ -45,6 +46,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "./routes/notifications";
+import { listContributorTasks, startContributorTask } from "./routes/contributor-tasks";
 
 export function createServer() {
   const app = express();
@@ -73,6 +75,7 @@ export function createServer() {
   app.delete("/api/admin/payment-requests/:id", deletePaymentRequest);
   app.get("/api/admin/dashboard-stats", getAdminDashboardStats);
   app.get("/api/admin/users", listAdminUsers);
+  app.post("/api/admin/users", createAdminUser);
   app.get("/api/admin/users/:id", getAdminUserDetails);
   app.patch("/api/admin/users/:id/status", updateAdminUserStatus);
   app.delete("/api/admin/users/:id", deleteAdminUser);
@@ -102,6 +105,8 @@ export function createServer() {
   app.get("/api/notifications", listNotifications);
   app.patch("/api/notifications/:id/read", markNotificationRead);
   app.patch("/api/notifications/read-all", markAllNotificationsRead);
+  app.get("/api/contributor/tasks", listContributorTasks);
+  app.post("/api/contributor/tasks", startContributorTask);
 
   return app;
 }
