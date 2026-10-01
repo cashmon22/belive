@@ -1,6 +1,6 @@
 import type { Request, RequestHandler } from "express";
 import { createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
-import { notifyAdmins } from "../lib/notifications";
+import { notifyAdmins, notifyUser } from "../lib/notifications";
 import type { AdminApplication, AdminApplicationStatus, VerificationStatus } from "../../shared/admin-applications";
 
 const allowedStatuses: AdminApplicationStatus[] = ["Under Review", "Approved", "Rejected"];
@@ -197,6 +197,7 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
   const applicationId = crypto.randomUUID();
   const userId = await optionalUserId(req);
   const applicationValues = {
+    id: applicationId,
     submission_id: applicationId,
     status: "Under Review",
     verification_status: "Not Verified",
@@ -229,7 +230,7 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
     res.status(500).json({ error: "Unable to save the application." });
     return;
   }
-  void notifyAdmins({
+  await notifyAdmins({
     type: "new_application",
     title: "New Application Submitted",
     message: `${firstName} ${lastName} submitted a new contributor application.`,
@@ -322,12 +323,47 @@ export const updateAdminApplicationStatus: RequestHandler = async (req, res) => 
     res.status(400).json({ error: "Invalid application status." });
     return;
   }
-  const { error } = await serviceSupabase.from("applications").update({ status }).eq("submission_id", req.params.id);
+  const { data: application, error } = await serviceSupabase
+    .from("applications")
+    .update({ status })
+    .eq("submission_id", req.params.id)
+    .select("id, submission_id, user_id, first_name, last_name, email")
+    .maybeSingle();
   if (error) {
     console.error("[api] Unable to update application status.", error);
     res.status(500).json({ error: "Unable to update application status." });
     return;
   }
+  if (!application) {
+    res.status(404).json({ error: "Application not found." });
+    return;
+  }
+
+  let userId = application.user_id as string | null;
+  if (!userId && application.email) {
+    let page = 1;
+    while (!userId) {
+      const { data, error: usersError } = await serviceSupabase.auth.admin.listUsers({ page, perPage: 100 });
+      if (usersError || data.users.length === 0) break;
+      const users = data.users as unknown as Array<{ id: string; email?: string | null }>;
+      userId = users.find((candidate) => candidate.email?.toLowerCase() === application.email.toLowerCase())?.id ?? null;
+      if (data.users.length < 100) break;
+      page++;
+    }
+  }
+
+  if (userId && (status === "Approved" || status === "Rejected")) {
+    const applicantName = `${application.first_name} ${application.last_name}`.trim() || "Your application";
+    await notifyUser({
+      userId,
+      type: status === "Approved" ? "application_approved" : "application_rejected",
+      title: `Contributor Application ${status}`,
+      message: `${applicantName} has been ${status.toLowerCase()}.`,
+      link: "/dashboard",
+      relatedId: application.id,
+    });
+  }
+
   res.json({ id: req.params.id, status });
 };
 

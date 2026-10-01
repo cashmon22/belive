@@ -2,6 +2,8 @@ export type NotificationType =
   | "device_approved"
   | "device_rejected"
   | "new_application"
+  | "application_approved"
+  | "application_rejected"
   | "new_device_request"
   | "new_message"
   | "balance_adjusted";

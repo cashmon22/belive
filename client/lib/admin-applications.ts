@@ -1,5 +1,6 @@
 import type { AdminApplication, AdminApplicationStatus, AdminApplicationsResponse, VerificationStatus } from "@shared/admin-applications";
 import { supabase } from "./supabase";
+import { apiRequest } from "./api-request";
 
 type ApplicationRow = {
   id: string;
@@ -107,16 +108,11 @@ export async function getAdminApplicationDetails(id: string) {
   return rowToApplication(data as ApplicationRow);
 }
 
-export async function updateAdminApplicationStatus(id: string, status: AdminApplicationStatus) {
-  const { data, error } = await supabase
-    .from("applications")
-    .update({ status })
-    .eq("submission_id", id)
-    .select("submission_id")
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) throw new Error("Application not found.");
-  return { id, status };
+export function updateAdminApplicationStatus(id: string, status: AdminApplicationStatus) {
+  return apiRequest<{ id: string; status: AdminApplicationStatus }>(`/api/admin/applications/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
 }
 
 export async function updateAdminApplicationVerification(id: string, verificationStatus: VerificationStatus) {
