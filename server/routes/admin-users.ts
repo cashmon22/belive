@@ -1,5 +1,6 @@
 import type { Request, RequestHandler } from "express";
 import type { User } from "@supabase/supabase-js";
+import { z } from "zod";
 import { createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
 import { deleteOptionalRows, isMissingOptionalSchemaObject } from "../lib/admin-deletions";
 import { notifyUser } from "../lib/notifications";
@@ -51,6 +52,56 @@ function getServiceRoleClient(res: Parameters<RequestHandler>[1]) {
     return null;
   }
 }
+
+const createUserSchema = z.object({
+  email: z.string().trim().pipe(z.email()),
+  password: z.string().min(12),
+  fullName: z.string().trim().max(120).optional(),
+});
+
+export const createAdminUser: RequestHandler = async (req, res) => {
+  const admin = await getAdminUser(req, res);
+  if (!admin) return;
+
+  const parsed = createUserSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Enter a valid email, a password of at least 12 characters, and a valid optional name." });
+    return;
+  }
+
+  const serviceSupabase = getServiceRoleClient(res);
+  if (!serviceSupabase) return;
+
+  const email = parsed.data.email.trim().toLowerCase();
+  const fullName = parsed.data.fullName?.trim();
+  const { data, error } = await serviceSupabase.auth.admin.createUser({
+    email,
+    password: parsed.data.password,
+    email_confirm: true,
+    ...(fullName ? { user_metadata: { full_name: fullName } } : {}),
+  });
+
+  if (error) {
+    if (/already (registered|exists)|already been registered|user already/i.test(error.message)) {
+      res.status(409).json({ error: "An account with this email already exists." });
+      return;
+    }
+    res.status(400).json({ error: "Unable to create user. Check the account details and try again." });
+    return;
+  }
+
+  if (!data.user) {
+    res.status(500).json({ error: "Unable to create user." });
+    return;
+  }
+
+  res.status(201).json({
+    id: data.user.id,
+    email: data.user.email ?? email,
+    name: fullName || data.user.email?.split("@")[0] || "Unnamed user",
+    createdAt: data.user.created_at,
+  });
+};
 
 export const listAdminUsers: RequestHandler = async (req, res) => {
   const admin = await getAdminUser(req, res);
