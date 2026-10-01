@@ -333,11 +333,11 @@ export default function AdminMessages() {
         </div>
 
         {/* Chat panel */}
-        <div className={`flex flex-col ${selectedId ? "flex" : "hidden lg:flex"}`}>
+        <div className={`flex min-h-0 flex-col ${selectedId ? "flex" : "hidden lg:flex"}`}>
           {selectedId ? (
             <>
               {/* Chat header */}
-              <div className="border-b border-slate-100 p-4">
+              <div className="shrink-0 border-b border-slate-100 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
                     <button type="button" onClick={() => { selectedIdRef.current = null; setSelectedId(null); }} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-navy lg:hidden" aria-label="Back to conversations">
@@ -408,27 +408,26 @@ export default function AdminMessages() {
                   </div>
                 )}
               </div>
-
-              {/* Composer */}
-              <div className="border-t border-slate-100 p-4">
-                <form className="flex items-end gap-2" onSubmit={handleSend}>
-                  <textarea value={draft} onChange={(e) => { draftRef.current = e.target.value; setDraft(e.target.value); }} rows={1} placeholder="Type your reply..."
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleSend(e as unknown as FormEvent<HTMLFormElement>); } }}
-                    className="max-h-32 min-h-[44px] flex-1 resize-none rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-3 text-sm text-navy outline-none transition placeholder:text-slate-400 focus:border-orange focus:ring-2 focus:ring-orange/10" />
-                  <button type="submit" disabled={isSending || !draft.trim()}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-orange px-4 text-xs font-extrabold text-navy transition hover:bg-orange-light disabled:cursor-not-allowed disabled:opacity-50">
-                    {isSending ? <LoaderCircle size={15} className="animate-spin" /> : <Send size={15} />} Send
-                  </button>
-                </form>
-              </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center p-16 text-center">
-              <MessageSquare size={32} className="text-slate-300" />
+            <div className="min-h-0 flex-1 overflow-y-auto bg-[#f8f9fa] p-16 text-center">
+              <MessageSquare size={32} className="mx-auto text-slate-300" />
               <p className="mt-4 text-sm font-bold text-navy">Select a conversation</p>
               <p className="mt-1 text-xs text-slate-500">Choose a conversation from the list to view and reply to messages.</p>
             </div>
           )}
+
+          <div className="sticky bottom-0 z-10 shrink-0 border-t border-slate-100 bg-white p-4">
+            <form className="flex items-end gap-2" onSubmit={handleSend}>
+              <textarea value={draft} onChange={(e) => { draftRef.current = e.target.value; setDraft(e.target.value); }} rows={1} disabled={!selectedId} placeholder={selectedId ? "Type your reply..." : "Select a conversation to start messaging"}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleSend(e as unknown as FormEvent<HTMLFormElement>); } }}
+                className="max-h-32 min-h-[44px] flex-1 resize-none rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-3 text-sm text-navy outline-none transition placeholder:text-slate-400 focus:border-orange focus:ring-2 focus:ring-orange/10 disabled:cursor-not-allowed disabled:opacity-60" />
+              <button type="submit" disabled={!selectedId || isSending || !draft.trim()}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-orange px-4 text-xs font-extrabold text-navy transition hover:bg-orange-light disabled:cursor-not-allowed disabled:opacity-50">
+                {isSending ? <LoaderCircle size={15} className="animate-spin" /> : <Send size={15} />} Send
+              </button>
+            </form>
+          </div>
         </div>
       </div>
 
