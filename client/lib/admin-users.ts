@@ -10,6 +10,10 @@ export function getAdminUserDetails(id: string) {
   return apiRequest<AdminUser>(`/api/admin/users/${encodeURIComponent(id)}`);
 }
 
+export function deleteAdminUser(id: string) {
+  return apiRequest<{ id: string }>(`/api/admin/users/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 export function updateAdminUserStatus(id: string, status: AdminUserStatus) {
   return apiRequest<AdminUser>(`/api/admin/users/${encodeURIComponent(id)}/status`, {
     method: "PATCH",

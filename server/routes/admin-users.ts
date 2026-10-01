@@ -1,6 +1,7 @@
 import type { Request, RequestHandler } from "express";
 import type { User } from "@supabase/supabase-js";
 import { createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
+import { deleteOptionalRows, isMissingOptionalSchemaObject } from "../lib/admin-deletions";
 import { notifyUser } from "../lib/notifications";
 import type { AdminUser, AdminUserStatus } from "../../shared/admin-users";
 
@@ -38,6 +39,7 @@ function toAdminUser(user: User): AdminUser {
     createdAt: user.created_at,
     status: isSuspended ? "Suspended" : "Active",
     lastSignInAt: user.last_sign_in_at ?? null,
+    isAdmin: user.app_metadata?.role === "admin",
   };
 }
 
@@ -89,6 +91,68 @@ export const getAdminUserDetails: RequestHandler = async (req, res) => {
   }
 
   res.json(toAdminUser(data.user));
+};
+
+export const deleteAdminUser: RequestHandler = async (req, res) => {
+  const admin = await getAdminUser(req, res);
+  if (!admin) return;
+  const serviceSupabase = getServiceRoleClient(res);
+  if (!serviceSupabase) return;
+  const userId = typeof req.params.id === "string" ? req.params.id : "";
+  if (!userId) {
+    res.status(400).json({ error: "A user id is required." });
+    return;
+  }
+
+  try {
+    const { data, error } = await serviceSupabase.auth.admin.getUserById(userId);
+    if (error || !data.user) {
+      res.status(404).json({ error: "User not found." });
+      return;
+    }
+    if (data.user.app_metadata?.role === "admin") {
+      res.status(403).json({ error: "Administrator accounts cannot be deleted." });
+      return;
+    }
+
+    const { data: conversations, error: conversationsError } = await serviceSupabase
+      .from("vendor_conversations")
+      .select("id")
+      .eq("user_id", userId);
+    if (conversationsError && !isMissingOptionalSchemaObject(conversationsError)) throw conversationsError;
+
+    const conversationIds = (conversations ?? []).map((conversation) => conversation.id as string);
+    if (conversationIds.length) {
+      await deleteOptionalRows(() => serviceSupabase.from("vendor_messages").delete().in("conversation_id", conversationIds));
+    }
+    await deleteOptionalRows(() => serviceSupabase.from("vendor_messages").delete().eq("sender_id", userId));
+    await deleteOptionalRows(() => serviceSupabase.from("vendor_conversations").delete().eq("user_id", userId));
+    await deleteOptionalRows(() => serviceSupabase.from("payment_requests").delete().eq("user_id", userId));
+    await deleteOptionalRows(() => serviceSupabase.from("notifications").delete().eq("user_id", userId));
+    await deleteOptionalRows(() => serviceSupabase.from("contributor_earnings").delete().eq("user_id", userId));
+    await deleteOptionalRows(() => serviceSupabase.from("balance_transactions").delete().eq("user_id", userId));
+
+    const { error: linkedApplicationsError } = await serviceSupabase
+      .from("applications")
+      .delete()
+      .eq("user_id", userId);
+    if (linkedApplicationsError && isMissingOptionalSchemaObject(linkedApplicationsError)) {
+      if (data.user.email) {
+        await deleteOptionalRows(() => serviceSupabase.from("applications").delete().ilike("email", data.user.email!));
+      }
+    } else if (linkedApplicationsError) {
+      throw linkedApplicationsError;
+    } else if (data.user.email) {
+      await deleteOptionalRows(() => serviceSupabase.from("applications").delete().ilike("email", data.user.email!));
+    }
+
+    const { error: authError } = await serviceSupabase.auth.admin.deleteUser(userId);
+    if (authError) throw authError;
+    res.json({ id: userId });
+  } catch (deleteError) {
+    console.error("[api] Unable to delete user and linked records.", deleteError);
+    res.status(500).json({ error: "Unable to delete user and linked records." });
+  }
 };
 
 export const updateAdminUserStatus: RequestHandler = async (req, res) => {

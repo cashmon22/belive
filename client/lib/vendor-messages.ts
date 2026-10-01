@@ -56,6 +56,10 @@ export function getConversation(id: string) {
   return request<ConversationWithMessages>(`/api/vendor-conversations/${id}`);
 }
 
+export function deleteAdminConversation(id: string) {
+  return request<{ id: string }>(`/api/admin/vendor-conversations/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 export function sendMessage(conversationId: string, body: string) {
   return request<VendorMessage>(`/api/vendor-conversations/${conversationId}/messages`, {
     method: "POST",

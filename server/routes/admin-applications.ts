@@ -314,6 +314,28 @@ export const getAdminApplicationDetails: RequestHandler = async (req, res) => {
   res.json(application);
 };
 
+export const deleteAdminApplication: RequestHandler = async (req, res) => {
+  if (!(await getAdminUser(req, res))) return;
+  const serviceSupabase = serviceClient(res);
+  if (!serviceSupabase) return;
+  const { data, error } = await serviceSupabase
+    .from("applications")
+    .delete()
+    .eq("submission_id", req.params.id)
+    .select("submission_id")
+    .maybeSingle();
+  if (error) {
+    console.error("[api] Unable to delete application.", error);
+    res.status(500).json({ error: "Unable to delete application." });
+    return;
+  }
+  if (!data) {
+    res.status(404).json({ error: "Application not found." });
+    return;
+  }
+  res.json({ id: data.submission_id });
+};
+
 export const updateAdminApplicationStatus: RequestHandler = async (req, res) => {
   if (!(await getAdminUser(req, res))) return;
   const serviceSupabase = serviceClient(res);

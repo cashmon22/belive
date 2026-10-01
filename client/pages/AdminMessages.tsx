@@ -11,11 +11,15 @@ import {
   Search,
   Send,
   ShieldCheck,
+  Trash2,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
+import AdminDeleteDialog from "@/components/AdminDeleteDialog";
 import type { VendorConversation, VendorMessage } from "@shared/vendor-messages";
 import {
   adminCreateSupportConversation,
+  deleteAdminConversation,
   getConversation,
   listConversations,
   listAllUsers,
@@ -67,6 +71,8 @@ export default function AdminMessages() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<VendorMessage[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<VendorConversation | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
   const [error, setError] = useState("");
@@ -191,6 +197,31 @@ export default function AdminMessages() {
   const handleSearch = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmittedSearch(search.trim());
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!selectedId || isDeleting) return;
+    const conversationId = selectedId;
+    setIsDeleting(true);
+    setError("");
+    try {
+      await deleteAdminConversation(conversationId);
+      setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
+      selectedIdRef.current = null;
+      setSelectedId(null);
+      setSelectedConversation(null);
+      setMessages([]);
+      setDraft("");
+      draftRef.current = "";
+      setConfirmDelete(false);
+      toast.success("Conversation and messages deleted.");
+      void loadConversations();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete conversation.");
+      toast.error("Unable to delete conversation.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleSend = async (e: FormEvent<HTMLFormElement>) => {
@@ -333,11 +364,11 @@ export default function AdminMessages() {
         </div>
 
         {/* Chat panel */}
-        <div className={`flex flex-col ${selectedId ? "flex" : "hidden lg:flex"}`}>
+        <div className={`flex min-h-0 flex-col ${selectedId ? "flex" : "hidden lg:flex"}`}>
           {selectedId ? (
             <>
               {/* Chat header */}
-              <div className="border-b border-slate-100 p-4">
+              <div className="shrink-0 border-b border-slate-100 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
                     <button type="button" onClick={() => { selectedIdRef.current = null; setSelectedId(null); }} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-navy lg:hidden" aria-label="Back to conversations">
@@ -362,9 +393,14 @@ export default function AdminMessages() {
                       </div>
                     )}
                   </div>
-                  <button type="button" onClick={() => { void loadConversations(); if (selectedId) void loadChat(selectedId); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-orange" aria-label="Refresh">
-                    <RefreshCw size={15} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => setConfirmDelete(true)} disabled={isDeleting} className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50">
+                      <Trash2 size={14} /> Delete Conversation
+                    </button>
+                    <button type="button" onClick={() => { void loadConversations(); if (selectedId) void loadChat(selectedId); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-orange" aria-label="Refresh">
+                      <RefreshCw size={15} />
+                    </button>
+                  </div>
                 </div>
                 {/* Device context header (vendor only) */}
                 {activeConversation?.conversationType === "vendor" && activeConversation.deviceName && (
@@ -408,29 +444,30 @@ export default function AdminMessages() {
                   </div>
                 )}
               </div>
-
-              {/* Composer */}
-              <div className="border-t border-slate-100 p-4">
-                <form className="flex items-end gap-2" onSubmit={handleSend}>
-                  <textarea value={draft} onChange={(e) => { draftRef.current = e.target.value; setDraft(e.target.value); }} rows={1} placeholder="Type your reply..."
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleSend(e as unknown as FormEvent<HTMLFormElement>); } }}
-                    className="max-h-32 min-h-[44px] flex-1 resize-none rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-3 text-sm text-navy outline-none transition placeholder:text-slate-400 focus:border-orange focus:ring-2 focus:ring-orange/10" />
-                  <button type="submit" disabled={isSending || !draft.trim()}
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-orange px-4 text-xs font-extrabold text-navy transition hover:bg-orange-light disabled:cursor-not-allowed disabled:opacity-50">
-                    {isSending ? <LoaderCircle size={15} className="animate-spin" /> : <Send size={15} />} Send
-                  </button>
-                </form>
-              </div>
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center p-16 text-center">
-              <MessageSquare size={32} className="text-slate-300" />
+            <div className="min-h-0 flex-1 overflow-y-auto bg-[#f8f9fa] p-16 text-center">
+              <MessageSquare size={32} className="mx-auto text-slate-300" />
               <p className="mt-4 text-sm font-bold text-navy">Select a conversation</p>
               <p className="mt-1 text-xs text-slate-500">Choose a conversation from the list to view and reply to messages.</p>
             </div>
           )}
+
+          <div className="sticky bottom-0 z-10 shrink-0 border-t border-slate-100 bg-white p-4">
+            <form className="flex items-end gap-2" onSubmit={handleSend}>
+              <textarea value={draft} onChange={(e) => { draftRef.current = e.target.value; setDraft(e.target.value); }} rows={1} disabled={!selectedId} placeholder={selectedId ? "Type your reply..." : "Select a conversation to start messaging"}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleSend(e as unknown as FormEvent<HTMLFormElement>); } }}
+                className="max-h-32 min-h-[44px] flex-1 resize-none rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-3 text-sm text-navy outline-none transition placeholder:text-slate-400 focus:border-orange focus:ring-2 focus:ring-orange/10 disabled:cursor-not-allowed disabled:opacity-60" />
+              <button type="submit" disabled={!selectedId || isSending || !draft.trim()}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-orange px-4 text-xs font-extrabold text-navy transition hover:bg-orange-light disabled:cursor-not-allowed disabled:opacity-50">
+                {isSending ? <LoaderCircle size={15} className="animate-spin" /> : <Send size={15} />} Send
+              </button>
+            </form>
+          </div>
         </div>
       </div>
+
+      {confirmDelete && activeConversation && <AdminDeleteDialog title="Permanently delete this conversation?" message={`Delete the conversation with ${activeConversation.userName} and all messages? This cannot be undone.`} confirmLabel="Delete Conversation" isDeleting={isDeleting} onCancel={() => setConfirmDelete(false)} onConfirm={() => void handleDeleteConversation()} />}
 
       {newSupportOpen && (
         <NewSupportModal

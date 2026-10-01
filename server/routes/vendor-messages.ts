@@ -2,6 +2,7 @@ import type { Request, RequestHandler } from "express";
 import type { User } from "@supabase/supabase-js";
 import { createAuthenticatedSupabaseClient, createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
 import { notifyAdmins, notifyUser } from "../lib/notifications";
+import { deleteOptionalRows } from "../lib/admin-deletions";
 import type {
   VendorConversation,
   VendorMessage,
@@ -345,6 +346,46 @@ export const sendMessage: RequestHandler = async (req, res) => {
   }
 
   res.status(201).json(mapMessage(message));
+};
+
+export const deleteAdminConversation: RequestHandler = async (req, res) => {
+  const context = await getAuthenticatedUser(req, res);
+  if (!context) return;
+  if (!isAdmin(context.user)) {
+    res.status(403).json({ error: "Administrator access required." });
+    return;
+  }
+
+  const serviceSupabase = createServiceRoleSupabaseClient();
+  try {
+    const { data: conversation, error: lookupError } = await serviceSupabase
+      .from("vendor_conversations")
+      .select("id")
+      .eq("id", req.params.id)
+      .maybeSingle();
+    if (lookupError) throw lookupError;
+    if (!conversation) {
+      res.status(404).json({ error: "Conversation not found." });
+      return;
+    }
+
+    await deleteOptionalRows(() => serviceSupabase.from("vendor_messages").delete().eq("conversation_id", req.params.id));
+    const { data, error } = await serviceSupabase
+      .from("vendor_conversations")
+      .delete()
+      .eq("id", req.params.id)
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      res.status(404).json({ error: "Conversation not found." });
+      return;
+    }
+    res.json({ id: data.id });
+  } catch (deleteError) {
+    console.error("[api] Unable to delete conversation and messages.", deleteError);
+    res.status(500).json({ error: "Unable to delete conversation." });
+  }
 };
 
 // PATCH /api/vendor-conversations/:id/read — mark messages as read for the caller

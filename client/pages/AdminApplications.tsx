@@ -10,16 +10,19 @@ import {
   Phone,
   Search,
   ShieldCheck,
+  Trash2,
   UserCircle,
   X,
   XCircle,
 } from "lucide-react";
+import AdminDeleteDialog from "@/components/AdminDeleteDialog";
 import type {
   AdminApplication,
   AdminApplicationStatus,
   VerificationStatus,
 } from "@shared/admin-applications";
 import {
+  deleteAdminApplication,
   getAdminApplicationDetails,
   listAdminApplications,
   updateAdminApplicationStatus,
@@ -94,8 +97,10 @@ export default function AdminApplications() {
   const [submittedSearch, setSubmittedSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [selectedApplication, setSelectedApplication] = useState<AdminApplication | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminApplication | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState("");
 
   const loadApplications = async (query: string, filter: FilterKey) => {
@@ -137,6 +142,24 @@ export default function AdminApplications() {
       setSelectedApplication(await getAdminApplicationDetails(application.id));
     } catch {
       setSelectedApplication(application);
+    }
+  };
+
+  const handleDeleteApplication = async () => {
+    if (!deleteTarget || isDeleting) return;
+    setIsDeleting(true);
+    setError("");
+    try {
+      await deleteAdminApplication(deleteTarget.id);
+      setApplications((current) => current.filter((application) => application.id !== deleteTarget.id));
+      setSelectedApplication(null);
+      setDeleteTarget(null);
+      toast.success("Application deleted.");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete application.");
+      toast.error("Unable to delete application.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -405,10 +428,12 @@ export default function AdminApplications() {
               </div>
             </div>
 
+            <button type="button" disabled={isUpdating || isDeleting} onClick={() => setDeleteTarget(selectedApplication)} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-2.5 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50"><Trash2 size={14} /> Delete Application</button>
             <p className="mt-5 text-xs leading-5 text-slate-500">Only submitted application fields are shown. Passwords, tokens, and secret credentials are never exposed.</p>
           </section>
         </div>
       )}
+      {deleteTarget && <AdminDeleteDialog title="Permanently delete this application?" message={`Delete the application from ${deleteTarget.applicantName}? This action cannot be undone.`} confirmLabel="Delete Application" isDeleting={isDeleting} onCancel={() => setDeleteTarget(null)} onConfirm={() => void handleDeleteApplication()} />}
     </>
   );
 }

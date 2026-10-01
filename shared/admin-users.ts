@@ -7,6 +7,7 @@ export interface AdminUser {
   createdAt: string;
   status: AdminUserStatus;
   lastSignInAt: string | null;
+  isAdmin: boolean;
 }
 
 export interface AdminUsersResponse {

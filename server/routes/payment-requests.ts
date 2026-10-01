@@ -3,6 +3,7 @@ import type { Request, RequestHandler } from "express";
 import type { User } from "@supabase/supabase-js";
 import { createAuthenticatedSupabaseClient, createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
 import { notifyAdmins, notifyUser } from "../lib/notifications";
+import { deleteOptionalRows, isMissingOptionalSchemaObject } from "../lib/admin-deletions";
 import { vendorDevices, type VendorDevice } from "../../shared/vendor-data";
 import type {
   CreatePaymentRequestInput,
@@ -372,21 +373,37 @@ export const deletePaymentRequest: RequestHandler = async (req, res) => {
   // Admin authorization is already verified above via isAdmin(user).
   const serviceSupabase = createServiceRoleSupabaseClient();
 
-  const { data, error } = await serviceSupabase
-    .from("payment_requests")
-    .delete()
-    .eq("id", req.params.id)
-    .select("id")
-    .single();
+  try {
+    const { data: conversations, error: lookupError } = await serviceSupabase
+      .from("vendor_conversations")
+      .select("id")
+      .eq("payment_request_id", req.params.id)
+      .eq("conversation_type", "vendor");
+    if (lookupError && !isMissingOptionalSchemaObject(lookupError)) throw lookupError;
 
-  if (error) {
-    logPaymentRequestFailure("delete", error);
-    console.error("[api] Unable to delete payment request.", error);
-    res.status(500).json({ error: "Unable to delete payment request." });
-    return;
+    const conversationIds = (conversations ?? []).map((conversation) => conversation.id as string);
+    if (conversationIds.length) {
+      await deleteOptionalRows(() => serviceSupabase.from("vendor_messages").delete().in("conversation_id", conversationIds));
+      await deleteOptionalRows(() => serviceSupabase.from("vendor_conversations").delete().in("id", conversationIds));
+    }
+
+    const { data, error } = await serviceSupabase
+      .from("payment_requests")
+      .delete()
+      .eq("id", req.params.id)
+      .select("id")
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) {
+      res.status(404).json({ error: "Device request not found." });
+      return;
+    }
+    res.json(data);
+  } catch (deleteError) {
+    logPaymentRequestFailure("delete", deleteError);
+    console.error("[api] Unable to delete payment request.", deleteError);
+    res.status(500).json({ error: "Unable to delete device request." });
   }
-
-  res.json(data);
 };
 
 export type { AuthenticatedRequest };
