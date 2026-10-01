@@ -108,6 +108,10 @@ export async function getAdminApplicationDetails(id: string) {
   return rowToApplication(data as ApplicationRow);
 }
 
+export function deleteAdminApplication(id: string) {
+  return apiRequest<{ id: string }>(`/api/admin/applications/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
 export function updateAdminApplicationStatus(id: string, status: AdminApplicationStatus) {
   return apiRequest<{ id: string; status: AdminApplicationStatus }>(`/api/admin/applications/${id}/status`, {
     method: "PATCH",

@@ -14,6 +14,7 @@ import {
   X,
   XCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { PaymentRequest, PaymentRequestStatus } from "@shared/payment-requests";
 import { deletePaymentRequest, listPaymentRequests, updatePaymentRequestStatus } from "@/lib/payment-requests";
 
@@ -147,8 +148,10 @@ export default function AdminDeviceRequests() {
       setRequests((current) => current.filter((r) => r.id !== request.id));
       setSelectedRequest(null);
       setConfirmAction(null);
+      toast.success("Device request and linked conversation deleted.");
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Unable to delete request.");
+      toast.error("Unable to delete device request.");
     } finally {
       setIsUpdating(false);
     }

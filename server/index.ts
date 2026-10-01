@@ -10,11 +10,13 @@ import {
   updatePaymentRequestStatus,
 } from "./routes/payment-requests";
 import {
+  deleteAdminUser,
   getAdminUserDetails,
   listAdminUsers,
   updateAdminUserStatus,
 } from "./routes/admin-users";
 import {
+  deleteAdminApplication,
   getAdminApplicationDetails,
   listAdminApplications,
   mirrorApplication,
@@ -31,6 +33,7 @@ import {
 import {
   adminCreateSupportConversation,
   createOrGetConversation,
+  deleteAdminConversation,
   getConversation,
   getOrCreateSupportConversation,
   listConversations,
@@ -72,6 +75,7 @@ export function createServer() {
   app.get("/api/admin/users", listAdminUsers);
   app.get("/api/admin/users/:id", getAdminUserDetails);
   app.patch("/api/admin/users/:id/status", updateAdminUserStatus);
+  app.delete("/api/admin/users/:id", deleteAdminUser);
   app.get("/api/admin/users/:id/balance", getUserBalance);
   app.post("/api/admin/users/:id/balance/add", addUserBalance);
   app.post("/api/admin/users/:id/balance/remove", removeUserBalance);
@@ -81,6 +85,7 @@ export function createServer() {
   app.get("/api/admin/applications", listAdminApplications);
   app.get("/api/admin/applications/:id", getAdminApplicationDetails);
   app.patch("/api/admin/applications/:id/status", updateAdminApplicationStatus);
+  app.delete("/api/admin/applications/:id", deleteAdminApplication);
   app.patch("/api/admin/applications/:id/verification", updateAdminApplicationVerification);
 
   // Vendor + Support messaging
@@ -88,6 +93,7 @@ export function createServer() {
   app.get("/api/vendor-conversations", listConversations);
   app.get("/api/vendor-conversations/support", getOrCreateSupportConversation);
   app.get("/api/vendor-conversations/:id", getConversation);
+  app.delete("/api/admin/vendor-conversations/:id", deleteAdminConversation);
   app.post("/api/vendor-conversations/:id/messages", sendMessage);
   app.patch("/api/vendor-conversations/:id/read", markConversationRead);
   app.post("/api/admin/support-conversations", adminCreateSupportConversation);

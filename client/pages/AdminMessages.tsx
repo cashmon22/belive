@@ -11,11 +11,15 @@ import {
   Search,
   Send,
   ShieldCheck,
+  Trash2,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
+import AdminDeleteDialog from "@/components/AdminDeleteDialog";
 import type { VendorConversation, VendorMessage } from "@shared/vendor-messages";
 import {
   adminCreateSupportConversation,
+  deleteAdminConversation,
   getConversation,
   listConversations,
   listAllUsers,
@@ -67,6 +71,8 @@ export default function AdminMessages() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<VendorMessage[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<VendorConversation | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
   const [error, setError] = useState("");
@@ -191,6 +197,31 @@ export default function AdminMessages() {
   const handleSearch = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmittedSearch(search.trim());
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!selectedId || isDeleting) return;
+    const conversationId = selectedId;
+    setIsDeleting(true);
+    setError("");
+    try {
+      await deleteAdminConversation(conversationId);
+      setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
+      selectedIdRef.current = null;
+      setSelectedId(null);
+      setSelectedConversation(null);
+      setMessages([]);
+      setDraft("");
+      draftRef.current = "";
+      setConfirmDelete(false);
+      toast.success("Conversation and messages deleted.");
+      void loadConversations();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete conversation.");
+      toast.error("Unable to delete conversation.");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleSend = async (e: FormEvent<HTMLFormElement>) => {
@@ -362,9 +393,14 @@ export default function AdminMessages() {
                       </div>
                     )}
                   </div>
-                  <button type="button" onClick={() => { void loadConversations(); if (selectedId) void loadChat(selectedId); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-orange" aria-label="Refresh">
-                    <RefreshCw size={15} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => setConfirmDelete(true)} disabled={isDeleting} className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50">
+                      <Trash2 size={14} /> Delete Conversation
+                    </button>
+                    <button type="button" onClick={() => { void loadConversations(); if (selectedId) void loadChat(selectedId); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-orange" aria-label="Refresh">
+                      <RefreshCw size={15} />
+                    </button>
+                  </div>
                 </div>
                 {/* Device context header (vendor only) */}
                 {activeConversation?.conversationType === "vendor" && activeConversation.deviceName && (
@@ -430,6 +466,8 @@ export default function AdminMessages() {
           </div>
         </div>
       </div>
+
+      {confirmDelete && activeConversation && <AdminDeleteDialog title="Permanently delete this conversation?" message={`Delete the conversation with ${activeConversation.userName} and all messages? This cannot be undone.`} confirmLabel="Delete Conversation" isDeleting={isDeleting} onCancel={() => setConfirmDelete(false)} onConfirm={() => void handleDeleteConversation()} />}
 
       {newSupportOpen && (
         <NewSupportModal
