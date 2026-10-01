@@ -53,8 +53,7 @@ export default function DeviceNotRecognizedModal({
             id="device-not-recognized-description"
             className="text-sm leading-6 text-slate-600"
           >
-            Your current device hasn't been verified for this assignment. Please
-            verify your device before starting the task.
+            Your current device has not been verified for this assignment. Verify your device before starting this task.
           </p>
           <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button

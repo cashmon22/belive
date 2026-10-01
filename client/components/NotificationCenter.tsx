@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { useNotifications } from "@/lib/notifications";
 import { ErrorState } from "@/components/skeletons";
 import type { AppNotification } from "@shared/notifications";
+import { useAuth } from "@/lib/auth";
+import { showInAppNotifications } from "@/lib/account-preferences";
 
 function formatNotificationTime(value: string) {
   const date = new Date(value);
@@ -46,6 +48,8 @@ export default function NotificationCenter({
   const panelRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
+  const { session } = useAuth();
+  const notificationsEnabled = showInAppNotifications(session?.user.user_metadata);
 
   useEffect(() => {
     if (!open) return;
@@ -79,6 +83,7 @@ export default function NotificationCenter({
   };
 
   const isDark = variant === "user";
+  if (isDark && !notificationsEnabled) return null;
 
   return (
     <div className="relative" ref={panelRef}>

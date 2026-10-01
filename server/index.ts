@@ -46,6 +46,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from "./routes/notifications";
+import { listContributorTasks, startContributorTask } from "./routes/contributor-tasks";
 
 export function createServer() {
   const app = express();
@@ -104,6 +105,8 @@ export function createServer() {
   app.get("/api/notifications", listNotifications);
   app.patch("/api/notifications/:id/read", markNotificationRead);
   app.patch("/api/notifications/read-all", markAllNotificationsRead);
+  app.get("/api/contributor/tasks", listContributorTasks);
+  app.post("/api/contributor/tasks", startContributorTask);
 
   return app;
 }
