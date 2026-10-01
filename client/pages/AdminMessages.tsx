@@ -334,7 +334,7 @@ export default function AdminMessages() {
 
         {/* Chat panel */}
         <div className={`flex flex-col ${selectedId ? "flex" : "hidden lg:flex"}`}>
-          {activeConversation ? (
+          {selectedId ? (
             <>
               {/* Chat header */}
               <div className="border-b border-slate-100 p-4">
@@ -343,22 +343,31 @@ export default function AdminMessages() {
                     <button type="button" onClick={() => { selectedIdRef.current = null; setSelectedId(null); }} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-navy lg:hidden" aria-label="Back to conversations">
                       <ArrowLeft size={18} />
                     </button>
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy text-white">
-                      <ConversationIcon type={activeConversation.conversationType} />
-                    </span>
-                    <div>
-                      <p className="text-sm font-extrabold text-navy">
-                        {activeConversation.conversationType === "support" ? "Support" : (activeConversation.deviceName ?? "Vendor")}
-                      </p>
-                      <p className="text-xs text-slate-500">{activeConversation.userName} · {activeConversation.userEmail}</p>
-                    </div>
+                    {activeConversation ? (
+                      <>
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy text-white">
+                          <ConversationIcon type={activeConversation.conversationType} />
+                        </span>
+                        <div>
+                          <p className="text-sm font-extrabold text-navy">
+                            {activeConversation.conversationType === "support" ? "Support" : (activeConversation.deviceName ?? "Vendor")}
+                          </p>
+                          <p className="text-xs text-slate-500">{activeConversation.userName} · {activeConversation.userEmail}</p>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <p className="text-sm font-extrabold text-navy">Conversation</p>
+                        <p className="text-xs text-slate-500">{isLoadingChat ? "Loading conversation..." : "Conversation details unavailable"}</p>
+                      </div>
+                    )}
                   </div>
                   <button type="button" onClick={() => { void loadConversations(); if (selectedId) void loadChat(selectedId); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-orange" aria-label="Refresh">
                     <RefreshCw size={15} />
                   </button>
                 </div>
                 {/* Device context header (vendor only) */}
-                {activeConversation.conversationType === "vendor" && activeConversation.deviceName && (
+                {activeConversation?.conversationType === "vendor" && activeConversation.deviceName && (
                   <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-2.5">
                     <ShieldCheck size={14} className="text-orange" />
                     <span className="text-xs font-bold text-navy">{activeConversation.deviceName}</span>
