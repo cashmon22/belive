@@ -54,6 +54,10 @@ function isMissingColumnError(error: { code?: string } | null): boolean {
   return !!error && (error.code === "42703" || error.code === "PGRST204");
 }
 
+function isLegacyStatusConstraintError(error: { code?: string; message?: string } | null) {
+  return error?.code === "23514" && error.message?.includes("payment_requests_status_check");
+}
+
 function logPaymentRequestFailure(stage: string, error: unknown) {
   const details = error && typeof error === "object" ? error as Record<string, unknown> : {};
   console.error("Payment request failed", {
@@ -87,7 +91,7 @@ function mapRequest(row: any) {
     deviceAmount: row.device_amount,
     currency: row.currency,
     vendor: row.vendor,
-    status: row.status,
+    status: row.status === "Pending Review" ? "Under Review" : row.status,
     createdAt: row.created_at,
     rejectionReason: row.rejection_reason ?? null,
     reviewedAt: row.reviewed_at ?? null,
@@ -118,14 +122,14 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
     return;
   }
 
-  // Prevent duplicate active requests for the same device.
-  // "Active" = Under Review or Approved. Rejected requests allow re-submission.
+  // Prevent duplicate active requests for the same device across both schema status values.
+  // Rejected requests allow re-submission.
   const { data: existingActive } = await authenticatedSupabase
     .from("payment_requests")
     .select(baseSelect)
     .eq("user_id", user.id)
     .eq("device_id", body.deviceId)
-    .in("status", ["Under Review", "Approved"])
+    .in("status", ["Under Review", "Pending Review", "Approved"])
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -168,76 +172,42 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
     return;
   }
 
-  const { data, error } = await authenticatedSupabase
+  const paymentRequestValues = {
+    id: crypto.randomUUID(),
+    user_id: user.id,
+    full_legal_name: body.fullLegalName.trim(),
+    email: user.email ?? "",
+    phone: body.phone.trim(),
+    delivery_address: body.deliveryAddress.trim(),
+    city: body.city.trim(),
+    state_province: body.stateProvince.trim(),
+    postal_code: body.postalCode.trim(),
+    country: body.country.trim(),
+    device_id: device.id,
+    device_name: device.name,
+    device_model: device.model,
+    device_amount: device.price,
+    currency: device.currency,
+    vendor: "Trusted Vendor",
+    status: "Under Review",
+  };
+  let result = await authenticatedSupabase
     .from("payment_requests")
-    .insert({
-      id: crypto.randomUUID(),
-      user_id: user.id,
-      full_legal_name: body.fullLegalName.trim(),
-      email: user.email ?? "",
-      phone: body.phone.trim(),
-      delivery_address: body.deliveryAddress.trim(),
-      city: body.city.trim(),
-      state_province: body.stateProvince.trim(),
-      postal_code: body.postalCode.trim(),
-      country: body.country.trim(),
-      device_id: device.id,
-      device_name: device.name,
-      device_model: device.model,
-      device_amount: device.price,
-      currency: device.currency,
-      vendor: "Trusted Vendor",
-      status: "Under Review",
-    })
-    .select(fullSelect)
+    .insert(paymentRequestValues)
+    .select(baseSelect)
     .single();
 
-  if (isMissingColumnError(error)) {
-    // rejection_reason/reviewed_at columns don't exist yet — retry without them
-    const { data: fallback, error: fallbackError } = await authenticatedSupabase
+  if (isLegacyStatusConstraintError(result.error)) {
+    result = await authenticatedSupabase
       .from("payment_requests")
-      .insert({
-        id: crypto.randomUUID(),
-        user_id: user.id,
-        full_legal_name: body.fullLegalName.trim(),
-        email: user.email ?? "",
-        phone: body.phone.trim(),
-        delivery_address: body.deliveryAddress.trim(),
-        city: body.city.trim(),
-        state_province: body.stateProvince.trim(),
-        postal_code: body.postalCode.trim(),
-        country: body.country.trim(),
-        device_id: device.id,
-        device_name: device.name,
-        device_model: device.model,
-        device_amount: device.price,
-        currency: device.currency,
-        vendor: "Trusted Vendor",
-        status: "Under Review",
-      })
+      .insert({ ...paymentRequestValues, status: "Pending Review" })
       .select(baseSelect)
       .single();
-
-    if (fallbackError) {
-      logPaymentRequestFailure("payment request insert", fallbackError);
-      console.error("[api] Unable to save the payment request.", error);
-      res.status(500).json({ error: "Unable to save the payment request." });
-      return;
-    }
-    void notifyAdmins({
-      type: "new_device_request",
-      title: "New Device Request",
-      message: `${body.fullLegalName} submitted a payment/device request for ${device.name}.`,
-      link: "/admin/device-requests",
-      relatedId: fallback.id,
-    });
-    res.status(201).json(mapRequest(fallback));
-    return;
   }
 
-  if (error) {
-    logPaymentRequestFailure("payment request insert", error);
-    console.error("[api] Unable to save the payment request.", error);
+  if (result.error) {
+    logPaymentRequestFailure("payment request insert", result.error);
+    console.error("[api] Unable to save the payment request.", result.error);
     res.status(500).json({ error: "Unable to save the payment request." });
     return;
   }
@@ -247,9 +217,9 @@ export const createPaymentRequest: RequestHandler = async (req, res) => {
     title: "New Device Request",
     message: `${body.fullLegalName} submitted a payment/device request for ${device.name}.`,
     link: "/admin/device-requests",
-    relatedId: data.id,
+    relatedId: result.data.id,
   });
-  res.status(201).json(mapRequest(data));
+  res.status(201).json(mapRequest(result.data));
 };
 
 export const listPaymentRequests: RequestHandler = async (req, res) => {

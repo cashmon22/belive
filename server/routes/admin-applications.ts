@@ -112,6 +112,11 @@ function textField(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
+function isMissingUserIdColumnError(error: { code?: string; message?: string; details?: string } | null) {
+  const message = `${error?.message ?? ""} ${error?.details ?? ""}`;
+  return !!error && (error.code === "42703" || error.code === "PGRST204") && message.includes("user_id");
+}
+
 /** Best-effort per-instance throttle (serverless instances do not share memory). */
 function isRateLimited(ip: string) {
   const now = Date.now();
@@ -191,9 +196,8 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
 
   const applicationId = crypto.randomUUID();
   const userId = await optionalUserId(req);
-  const { error } = await serviceSupabase.from("applications").insert({
+  const applicationValues = {
     submission_id: applicationId,
-    user_id: userId,
     status: "Under Review",
     verification_status: "Not Verified",
     first_name: firstName,
@@ -211,7 +215,14 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
     follows_instructions: eligibility.includes(eligibilityLabels[2]),
     agrees_policies: eligibility.includes(eligibilityLabels[3]),
     understands_review: eligibility.includes(eligibilityLabels[4]),
-  });
+  };
+  let { error } = await serviceSupabase
+    .from("applications")
+    .insert({ ...applicationValues, user_id: userId });
+
+  if (isMissingUserIdColumnError(error)) {
+    ({ error } = await serviceSupabase.from("applications").insert(applicationValues));
+  }
 
   if (error) {
     console.error("[api] Unable to save the application.", applicationId, error);
