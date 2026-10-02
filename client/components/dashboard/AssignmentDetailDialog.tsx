@@ -42,7 +42,7 @@ export default function AssignmentDetailDialog({
             <div className="rounded-lg border border-slate-200 bg-[#fbfcfd] p-4"><p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Availability</p><p className="mt-2 text-sm font-extrabold text-navy">{assignment.status}</p></div>
           </div>
           <div className="mt-6">
-            <h3 className="text-xs font-extrabold uppercase tracking-wide text-navy">Task brief &amp; instructions</h3>
+            <h3 className="text-xs font-extrabold uppercase tracking-wide text-navy">Full description &amp; instructions</h3>
             <p className="mt-2 text-sm leading-6 text-slate-600">{assignment.description}</p>
           </div>
           {eligibilityLoading || deviceLoading ? <div className="mt-5 rounded-lg bg-slate-50 p-3 text-xs text-slate-500" role="status">Checking account and device eligibility…</div> : !isEligible ? <div className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-800" role="status">Your account is not currently eligible to start assignments.</div> : null}
