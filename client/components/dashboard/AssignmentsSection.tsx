@@ -127,12 +127,11 @@ export default function AssignmentsSection({
             <div className="mt-5 border-t border-slate-100 pt-4">
               <button
                 type="button"
-                disabled={assignment.status === "Full"}
                 onClick={() => onSelectAssignment(assignment)}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-navy px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-[#1d3042] disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-navy px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-[#1d3042]"
               >
                 <PlayCircle size={15} className="text-orange" />
-                {assignment.status === "Full" ? "Slots Full" : "View Details"}
+                View Details
               </button>
             </div>
           </div>
