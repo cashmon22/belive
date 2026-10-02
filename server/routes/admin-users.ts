@@ -96,6 +96,26 @@ export const createAdminUser: RequestHandler = async (req, res) => {
     return;
   }
 
+  const { data: application, error: applicationError } = await serviceSupabase.from("applications")
+    .select("referral_owner_user_id, status")
+    .ilike("email", email)
+    .not("referral_owner_user_id", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (applicationError) {
+    console.error("[api] Unable to load application referral attribution.", applicationError);
+  } else if (application?.referral_owner_user_id && application.referral_owner_user_id !== data.user.id) {
+    const { error: referralError } = await serviceSupabase.from("contributor_referrals").insert({
+      referrer_user_id: application.referral_owner_user_id,
+      referred_user_id: data.user.id,
+      status: application.status === "Approved" ? "Successful" : application.status === "Rejected" ? "Rejected" : "Pending",
+    });
+    if (referralError && referralError.code !== "23505") {
+      console.error("[api] Unable to record contributor referral.", referralError);
+    }
+  }
+
   res.status(201).json({
     id: data.user.id,
     email: data.user.email ?? email,

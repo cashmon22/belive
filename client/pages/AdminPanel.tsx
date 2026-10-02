@@ -13,7 +13,10 @@ import {
   Monitor,
   Search,
   Settings,
+  SearchCheck,
+  Mail,
   ShieldCheck,
+  Scale,
   Users,
   X,
 } from "lucide-react";
@@ -31,6 +34,10 @@ const navigation = [
   { label: "Device Requests", href: "/admin/device-requests", icon: ClipboardList },
   { label: "Messages", href: "/admin/messages", icon: MessageSquare },
   { label: "Devices", href: "/admin/devices", icon: Monitor },
+  { label: "SEO Center", href: "/admin/seo", icon: SearchCheck },
+  { label: "Email Management", href: "/admin/email-management", icon: Mail },
+  { label: "Legal & Compliance", href: "/admin/legal-management", icon: Scale },
+  { label: "Site Settings", href: "/admin/site-settings", icon: Settings },
 ];
 
 const sectionDetails: Record<string, { eyebrow: string; title: string; description: string }> = {

@@ -38,8 +38,14 @@ async function invoke(req: Request) {
 beforeEach(() => {
   vi.mocked(supabase.auth.getUser).mockResolvedValue({ data: { user: adminUser } as never, error: null });
   createUser = vi.fn(async () => ({ data: { user: createdUser }, error: null }));
+  const applicationQuery: Record<string, unknown> = {};
+  for (const method of ["select", "ilike", "not", "order", "limit"]) {
+    applicationQuery[method] = vi.fn(() => applicationQuery);
+  }
+  applicationQuery.maybeSingle = vi.fn(async () => ({ data: null, error: null }));
   vi.mocked(createServiceRoleSupabaseClient).mockReturnValue({
     auth: { admin: { createUser } },
+    from: vi.fn(() => applicationQuery),
   } as never);
 });
 
