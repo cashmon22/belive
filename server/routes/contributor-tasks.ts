@@ -76,32 +76,16 @@ export const startContributorTask: RequestHandler = async (req, res) => {
   if (!serviceSupabase) return;
 
   if (user.email) {
-    const { data: linkedApplication, error: linkedApplicationError } = await serviceSupabase
+    const { data: application, error: applicationError } = await serviceSupabase
       .from("applications")
       .select("status")
-      .eq("user_id", user.id)
+      .ilike("email", user.email)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (linkedApplicationError) {
+    if (applicationError) {
       res.status(500).json({ error: "Unable to verify account eligibility." });
       return;
-    }
-
-    let application = linkedApplication;
-    if (!application) {
-      const { data: emailApplication, error: emailApplicationError } = await serviceSupabase
-        .from("applications")
-        .select("status")
-        .ilike("email", user.email)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      if (emailApplicationError) {
-        res.status(500).json({ error: "Unable to verify account eligibility." });
-        return;
-      }
-      application = emailApplication;
     }
 
     if (application && application.status !== "Approved") {

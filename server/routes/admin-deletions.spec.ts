@@ -45,9 +45,6 @@ function createService() {
       calls.push({ table, operation, filters: [...filters] });
       if (table === "vendor_conversations" && operation === "select") return { data: [{ id: testIds.conversation }], error: null };
       if (table === "vendor_conversations" && filters.some((filter) => filter[1] === "id")) return { data: { id: testIds.conversation }, error: null };
-      if (table === "applications" && operation === "delete" && filters.some((filter) => filter[1] === "user_id")) {
-        return { data: null, error: { code: "42703", message: "column user_id does not exist" } };
-      }
       if (table === "applications" && operation === "delete") return { data: { submission_id: testIds.application }, error: null };
       if (table === "payment_requests" && operation === "delete") return { data: { id: testIds.request }, error: null };
       if (table === "vendor_conversations" && operation === "delete") return { data: { id: testIds.conversation }, error: null };

@@ -163,7 +163,7 @@ export const getAdminContributorOverview: RequestHandler = async (req, res) => {
   }
 
   const [applications, deviceRequests, tasks, earnings, conversations] = await Promise.all([
-    serviceSupabase.from("applications").select("first_name, last_name, email, phone, status, verification_status, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(1),
+    serviceSupabase.from("applications").select("first_name, last_name, email, phone, status, verification_status, created_at").ilike("email", authData.user.email ?? "").order("created_at", { ascending: false }).limit(1),
     serviceSupabase.from("payment_requests").select("id, device_name, device_model, status, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
     serviceSupabase.from("contributor_tasks").select("id, assignment_id, status, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(50),
     serviceSupabase.from("contributor_earnings").select("available_balance, pending_earnings, total_withdrawn").eq("user_id", userId).maybeSingle(),
@@ -176,16 +176,7 @@ export const getAdminContributorOverview: RequestHandler = async (req, res) => {
     return;
   }
 
-  let application = applications.data?.[0] ?? null;
-  if (!application && authData.user.email) {
-    const fallback = await serviceSupabase.from("applications").select("first_name, last_name, email, phone, status, verification_status, created_at").ilike("email", authData.user.email).order("created_at", { ascending: false }).limit(1).maybeSingle();
-    if (fallback.error) {
-      console.error("[api] Unable to load contributor application.", fallback.error);
-      res.status(500).json({ error: "Unable to load contributor overview." });
-      return;
-    }
-    application = fallback.data;
-  }
+  const application = applications.data?.[0] ?? null;
 
   res.json({
     phone: typeof authData.user.user_metadata?.phone === "string" ? authData.user.user_metadata.phone : application?.phone ?? null,
@@ -271,17 +262,7 @@ export const deleteAdminUser: RequestHandler = async (req, res) => {
     await deleteOptionalRows(() => serviceSupabase.from("contributor_earnings").delete().eq("user_id", userId));
     await deleteOptionalRows(() => serviceSupabase.from("balance_transactions").delete().eq("user_id", userId));
 
-    const { error: linkedApplicationsError } = await serviceSupabase
-      .from("applications")
-      .delete()
-      .eq("user_id", userId);
-    if (linkedApplicationsError && isMissingOptionalSchemaObject(linkedApplicationsError)) {
-      if (data.user.email) {
-        await deleteOptionalRows(() => serviceSupabase.from("applications").delete().ilike("email", data.user.email!));
-      }
-    } else if (linkedApplicationsError) {
-      throw linkedApplicationsError;
-    } else if (data.user.email) {
+    if (data.user.email) {
       await deleteOptionalRows(() => serviceSupabase.from("applications").delete().ilike("email", data.user.email!));
     }
 
