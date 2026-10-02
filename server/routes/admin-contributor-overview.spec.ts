@@ -28,6 +28,8 @@ const application = {
 
 let applicationRows: typeof application[];
 let applicationCalls: Array<{ filters: Array<[string, unknown]> }>;
+let relatedRows: Record<string, any>;
+let contributorTasksError: { code: string; message: string } | null;
 let service: any;
 
 function createService() {
@@ -42,11 +44,15 @@ function createService() {
       limit() { return query; },
       maybeSingle() {
         if (table === "applications") applicationCalls.push({ filters: [...filters] });
-        return Promise.resolve({ data: table === "applications" ? applicationRows[0] ?? null : null, error: null });
+        const data = table === "applications" ? applicationRows[0] ?? null : relatedRows[table] ?? null;
+        return Promise.resolve({ data, error: null });
       },
       then(onFulfilled: (value: any) => unknown, onRejected?: (reason: unknown) => unknown) {
         if (table === "applications") applicationCalls.push({ filters: [...filters] });
-        const data = table === "applications" ? applicationRows : [];
+        if (table === "contributor_tasks" && contributorTasksError) {
+          return Promise.resolve({ data: null, error: contributorTasksError }).then(onFulfilled, onRejected);
+        }
+        const data = table === "applications" ? applicationRows : relatedRows[table] ?? [];
         return Promise.resolve({ data, error: null }).then(onFulfilled, onRejected);
       },
     };
@@ -88,6 +94,13 @@ async function invoke(handler: unknown, req: Request) {
 
 beforeEach(() => {
   applicationRows = [];
+  relatedRows = {
+    payment_requests: [],
+    contributor_tasks: [],
+    contributor_earnings: null,
+    vendor_conversations: [],
+  };
+  contributorTasksError = null;
   vi.mocked(supabase.auth.getUser).mockResolvedValue({ data: { user: contributor } as never, error: null });
   createService();
 });
@@ -121,6 +134,86 @@ describe("contributor application lookups", () => {
     expect(result.body.tasks).toEqual([]);
     expect(result.body.earnings).toBeNull();
     expect(result.body.conversations).toEqual([]);
+  });
+
+  it("returns empty optional data when the contributor has no device requests", async () => {
+    const result = await invoke(getAdminContributorOverview, request());
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body.deviceRequests).toEqual([]);
+  });
+
+  it("returns empty optional data when the contributor has no earnings record", async () => {
+    const result = await invoke(getAdminContributorOverview, request());
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body.earnings).toBeNull();
+  });
+
+  it("returns empty optional data when the contributor has no conversations", async () => {
+    const result = await invoke(getAdminContributorOverview, request());
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body.conversations).toEqual([]);
+  });
+
+  it("returns an empty task list when contributor_tasks is absent from the schema cache", async () => {
+    contributorTasksError = {
+      code: "PGRST205",
+      message: "Could not find the table 'public.contributor_tasks' in the schema cache",
+    };
+
+    const result = await invoke(getAdminContributorOverview, request());
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body.tasks).toEqual([]);
+  });
+
+  it("returns 500 for genuine contributor task query failures", async () => {
+    contributorTasksError = { code: "08006", message: "Database connection failure" };
+
+    const result = await invoke(getAdminContributorOverview, request());
+
+    expect(result.statusCode).toBe(500);
+  });
+
+  it("returns a complete overview when all related data exists", async () => {
+    applicationRows = [application];
+    relatedRows.payment_requests = [{
+      id: "request-1",
+      device_name: "Laptop",
+      device_model: "Model X",
+      status: "Approved",
+      created_at: "2026-01-02T00:00:00Z",
+    }];
+    relatedRows.contributor_tasks = [{
+      id: "task-1",
+      assignment_id: "asg-001",
+      status: "Started",
+      created_at: "2026-01-03T00:00:00Z",
+    }];
+    relatedRows.contributor_earnings = {
+      available_balance: "25.50",
+      pending_earnings: "7.25",
+      total_withdrawn: "3.00",
+    };
+    relatedRows.vendor_conversations = [{
+      id: "conversation-1",
+      conversation_type: "support",
+      status: "active",
+      last_message: "Need help",
+      last_message_at: "2026-01-04T00:00:00Z",
+      admin_unread_count: 2,
+    }];
+
+    const result = await invoke(getAdminContributorOverview, request());
+
+    expect(result.statusCode).toBe(200);
+    expect(result.body.application.fullName).toBe("Taylor Contributor");
+    expect(result.body.deviceRequests).toHaveLength(1);
+    expect(result.body.tasks).toMatchObject([{ id: "task-1", title: "Product Feature Research" }]);
+    expect(result.body.earnings).toEqual({ availableBalance: 25.5, pendingEarnings: 7.25, totalWithdrawn: 3 });
+    expect(result.body.conversations).toMatchObject([{ id: "conversation-1", unreadCount: 2 }]);
   });
 
   it("loads the signed-in user's application by email", async () => {

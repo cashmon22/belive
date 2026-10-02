@@ -169,7 +169,8 @@ export const getAdminContributorOverview: RequestHandler = async (req, res) => {
     serviceSupabase.from("contributor_earnings").select("available_balance, pending_earnings, total_withdrawn").eq("user_id", userId).maybeSingle(),
     serviceSupabase.from("vendor_conversations").select("id, conversation_type, status, last_message, last_message_at, admin_unread_count").eq("user_id", userId).order("last_message_at", { ascending: false, nullsFirst: false }).limit(20),
   ]);
-  const failed = applications.error ?? deviceRequests.error ?? tasks.error ?? earnings.error ?? conversations.error;
+  const taskSchemaMissing = isMissingOptionalSchemaObject(tasks.error);
+  const failed = applications.error ?? deviceRequests.error ?? (taskSchemaMissing ? null : tasks.error) ?? earnings.error ?? conversations.error;
   if (failed) {
     console.error("[api] Unable to load contributor overview.", failed);
     res.status(500).json({ error: "Unable to load contributor overview." });
@@ -195,7 +196,7 @@ export const getAdminContributorOverview: RequestHandler = async (req, res) => {
       status: request.status,
       createdAt: request.created_at,
     })),
-    tasks: (tasks.data ?? []).map((task) => {
+    tasks: (taskSchemaMissing ? [] : tasks.data ?? []).map((task) => {
       const assignment = assignments.find((item) => item.id === task.assignment_id);
       return {
         id: task.id,
