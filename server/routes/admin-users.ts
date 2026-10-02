@@ -100,7 +100,7 @@ export const createAdminUser: RequestHandler = async (req, res) => {
     .select("referral_owner_user_id, status")
     .ilike("email", email)
     .not("referral_owner_user_id", "is", null)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (applicationError) {
