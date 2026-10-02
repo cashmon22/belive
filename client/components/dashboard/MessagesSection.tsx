@@ -11,6 +11,7 @@ import {
   listConversations,
 } from "@/lib/vendor-messages";
 import { supabase } from "@/lib/supabase";
+import { SkeletonConversationList } from "@/components/skeletons";
 import ConversationChat from "./ConversationChat";
 
 function formatTime(value: string | null) {
@@ -100,25 +101,25 @@ export default function MessagesSection() {
         <button
           type="button"
           onClick={() => setSelectedId(conv.id)}
-          className={`flex w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-[#fbfcfd] ${selectedId === conv.id ? "bg-orange/5" : ""}`}
+          className={`flex w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-[#fbfcfd] dark:bg-slate-800 ${selectedId === conv.id ? "bg-orange/5" : ""}`}
         >
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy text-white">
             <Icon size={16} className="text-orange" />
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-2">
-              <p className="truncate text-sm font-bold text-navy">
+              <p className="truncate text-sm font-bold text-navy dark:text-slate-100">
                 {icon === "support" ? "Support" : conv.deviceName ?? "Vendor"}
               </p>
-              <span className="shrink-0 text-[10px] font-semibold text-slate-400">{formatTime(conv.lastMessageAt)}</span>
+              <span className="shrink-0 text-[10px] font-semibold text-slate-400 dark:text-slate-500">{formatTime(conv.lastMessageAt)}</span>
             </div>
-            <p className="truncate text-xs text-slate-500">{subtitle}</p>
+            <p className="truncate text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{subtitle}</p>
             {conv.lastMessage && (
-              <p className="mt-1 truncate text-xs text-slate-400">{conv.lastMessage}</p>
+              <p className="mt-1 truncate text-xs text-slate-400 dark:text-slate-500">{conv.lastMessage}</p>
             )}
             <div className="mt-1.5 flex items-center gap-2">
               {icon === "vendor" && conv.referenceNumber && (
-                <span className="text-[10px] font-semibold text-slate-400">{conv.referenceNumber}</span>
+                <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">{conv.referenceNumber}</span>
               )}
               {icon === "vendor" && conv.requestStatus && (
                 <span className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[9px] font-bold text-emerald-700">
@@ -126,7 +127,7 @@ export default function MessagesSection() {
                 </span>
               )}
               {conv.userUnreadCount > 0 && (
-                <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange px-1.5 text-[10px] font-extrabold text-navy">
+                <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange px-1.5 text-[10px] font-extrabold text-navy dark:text-slate-100">
                   {conv.userUnreadCount}
                 </span>
               )}
@@ -144,8 +145,8 @@ export default function MessagesSection() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Contributor workspace</p>
-            <h1 className="mt-2 text-[26px] font-extrabold tracking-[-0.04em] text-navy sm:text-[32px]">Messages</h1>
-            <p className="mt-2 max-w-[600px] text-sm leading-6 text-slate-500">
+            <h1 className="mt-2 text-[26px] font-extrabold tracking-[-0.04em] text-navy dark:text-slate-100 sm:text-[32px]">Messages</h1>
+            <p className="mt-2 max-w-[600px] text-sm leading-6 text-slate-500 dark:text-slate-400 dark:text-slate-500">
               View and continue your conversations with Support and your Trusted Vendor.
             </p>
           </div>
@@ -164,27 +165,25 @@ export default function MessagesSection() {
       )}
 
       {/* Inbox layout */}
-      <div className="mt-7 grid gap-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_3px_16px_rgba(20,36,52,0.04)] lg:grid-cols-[360px_1fr]" style={{ height: "calc(100vh - 320px)", minHeight: "500px" }}>
+      <div className="mt-7 grid gap-0 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 shadow-[0_3px_16px_rgba(20,36,52,0.04)] lg:grid-cols-[360px_1fr]" style={{ height: "calc(100vh - 320px)", minHeight: "500px" }}>
         {/* Conversation list */}
         <div className={`flex flex-col border-r border-slate-200 ${selectedId ? "hidden lg:flex" : "flex"}`}>
           <div className="min-h-0 flex-1 overflow-y-auto">
             {isLoading ? (
-              <div className="flex items-center justify-center gap-2 py-16 text-sm font-semibold text-slate-500" role="status">
-                <LoaderCircle size={16} className="animate-spin text-orange" /> Loading...
-              </div>
+              <div role="status" aria-label="Loading conversations"><SkeletonConversationList /></div>
             ) : conversations.length === 0 ? (
               <div className="px-5 py-16 text-center">
                 <MessageSquare size={26} className="mx-auto text-slate-300" />
-                <p className="mt-3 text-sm font-bold text-navy">No conversations</p>
-                <p className="mt-1 text-xs text-slate-500">Your conversations will appear here.</p>
+                <p className="mt-3 text-sm font-bold text-navy dark:text-slate-100">No conversations</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Your conversations will appear here.</p>
               </div>
             ) : (
               <div>
                 {/* Support section */}
                 {supportConversations.length > 0 && (
                   <div>
-                    <p className="border-b border-slate-100 bg-[#fbfcfd] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Support</p>
-                    <ul className="divide-y divide-slate-100">
+                    <p className="border-b border-slate-100 dark:border-slate-700 bg-[#fbfcfd] dark:bg-slate-800 px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Support</p>
+                    <ul className="divide-y divide-slate-100 dark:divide-slate-700">
                       {supportConversations.map((c) => renderConversationItem(c, "support"))}
                     </ul>
                   </div>
@@ -192,8 +191,8 @@ export default function MessagesSection() {
                 {/* Vendor section */}
                 {vendorConversations.length > 0 && (
                   <div>
-                    <p className="border-b border-slate-100 bg-[#fbfcfd] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Trusted Vendor</p>
-                    <ul className="divide-y divide-slate-100">
+                    <p className="border-b border-slate-100 dark:border-slate-700 bg-[#fbfcfd] dark:bg-slate-800 px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">Trusted Vendor</p>
+                    <ul className="divide-y divide-slate-100 dark:divide-slate-700">
                       {vendorConversations.map((c) => renderConversationItem(c, "vendor"))}
                     </ul>
                   </div>
@@ -217,8 +216,8 @@ export default function MessagesSection() {
           ) : (
             <div className="flex flex-col items-center justify-center p-16 text-center">
               <MessageSquare size={32} className="text-slate-300" />
-              <p className="mt-4 text-sm font-bold text-navy">Select a conversation</p>
-              <p className="mt-1 text-xs text-slate-500">Choose a conversation from the list to view and send messages.</p>
+              <p className="mt-4 text-sm font-bold text-navy dark:text-slate-100">Select a conversation</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Choose a conversation from the list to view and send messages.</p>
             </div>
           )}
         </div>

@@ -598,7 +598,7 @@ export default function Dashboard() {
             {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} session={session} deviceVerified={deviceRequest?.status === "Approved"} onContactVendor={() => setTrustedVendorOpen(true)} />}
             {activeItem === "Profile" && <ProfileSection session={session} applicationStatus={applicationStatus} deviceStatus={deviceRequestLoading ? "Loading…" : deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status ?? "Not Recognized"} paymentConfigured={paymentGatewayConfigured} isLoading={applicationLoading || deviceRequestLoading || earningsLoading} />}
             {activeItem === "Messages" && <MessagesSection />}
-            {activeItem === "Support" && <SupportSection />}
+            {activeItem === "Support" && <SupportSection onOpenMessages={() => setActiveItem("Messages")} />}
 
             <div className="mt-8 flex flex-col justify-between gap-3 border-t border-slate-200 pt-5 text-[10px] text-slate-400 sm:flex-row sm:items-center">
               <p>Amazon Contributor Portal · Secure access for approved contributors</p>

@@ -18,6 +18,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
+import { SkeletonStatCard } from "@/components/skeletons";
 import { getAdminDashboardStats } from "@/lib/admin-dashboard";
 import NotificationCenter from "@/components/NotificationCenter";
 import { PageTransition } from "@/components/PageTransition";
@@ -73,7 +74,7 @@ export default function AdminPanel() {
   const { count: unreadMessages } = useUnreadMessageCount("admin");
 
   if (isLoading) {
-    return <div className="flex min-h-screen items-center justify-center bg-[#f8f9fa] text-sm font-semibold text-navy">Checking your secure session...</div>;
+    return <div className="flex min-h-screen items-center justify-center bg-[#f8f9fa] text-sm font-semibold text-navy dark:text-slate-100">Checking your secure session...</div>;
   }
 
   if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
@@ -96,7 +97,7 @@ export default function AdminPanel() {
       <aside className={`fixed inset-y-0 left-0 z-40 flex w-[264px] flex-col bg-navy text-white transition-transform duration-200 lg:translate-x-0 ${mobileNavOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex h-[76px] items-center justify-between border-b border-white/10 px-6">
           <Link to="/admin" className="flex items-center gap-3" onClick={() => setMobileNavOpen(false)}>
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange text-navy"><ShieldCheck size={20} strokeWidth={2.4} /></span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange text-navy dark:text-slate-100"><ShieldCheck size={20} strokeWidth={2.4} /></span>
             <span><span className="block text-sm font-extrabold tracking-tight">Admin Portal</span><span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">Contributor program</span></span>
           </Link>
           <button type="button" className="rounded-md p-2 text-white/60 hover:bg-white/10 hover:text-white lg:hidden" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation"><X size={19} /></button>
@@ -105,9 +106,9 @@ export default function AdminPanel() {
           <p className="px-3 text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">Workspace</p>
           <nav className="mt-3 space-y-1" aria-label="Admin navigation">
             {navigation.map(({ label, href, icon: Icon, end }) => (
-              <NavLink key={label} to={href} end={end} onClick={() => setMobileNavOpen(false)} className={({ isActive }) => `group flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold transition ${isActive ? "bg-orange text-navy shadow-[0_6px_18px_rgba(255,153,0,0.18)]" : "text-white/65 hover:bg-white/[0.07] hover:text-white"}`}>
+              <NavLink key={label} to={href} end={end} onClick={() => setMobileNavOpen(false)} className={({ isActive }) => `group flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-semibold transition ${isActive ? "bg-orange text-navy dark:text-slate-100 shadow-[0_6px_18px_rgba(255,153,0,0.18)]" : "text-white/65 hover:bg-white/[0.07] hover:text-white"}`}>
                 <Icon size={18} strokeWidth={1.9} /><span>{label}</span>
-                {label === "Messages" && unreadMessages > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange px-1.5 text-[10px] font-extrabold text-navy">{unreadMessages}</span>}
+                {label === "Messages" && unreadMessages > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-orange px-1.5 text-[10px] font-extrabold text-navy dark:text-slate-100">{unreadMessages}</span>}
                 <ChevronRight size={15} className="ml-auto opacity-0 transition group-[.bg-orange]:opacity-60" />
               </NavLink>
             ))}
@@ -125,8 +126,8 @@ export default function AdminPanel() {
       {mobileNavOpen && <button type="button" className="fixed inset-0 z-30 bg-navy/50 lg:hidden" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation overlay" />}
 
       <div className="min-h-screen lg:pl-[264px]">
-        <header className="sticky top-0 z-20 flex h-[76px] items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur sm:px-7 lg:px-10">
-          <div className="flex items-center gap-3"><button type="button" className="rounded-lg border border-slate-200 p-2 text-navy lg:hidden" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button><div><p className="hidden text-[10px] font-bold uppercase tracking-[0.18em] text-orange sm:block">Administrator workspace</p><h1 className="text-lg font-extrabold text-navy sm:mt-0.5 sm:text-xl">{location.pathname === "/admin" ? "Dashboard" : navigation.find((item) => item.href === location.pathname)?.label || "Admin Portal"}</h1></div></div>
+        <header className="sticky top-0 z-20 flex h-[76px] items-center justify-between border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900/95 px-4 backdrop-blur sm:px-7 lg:px-10">
+          <div className="flex items-center gap-3"><button type="button" className="rounded-lg border border-slate-200 p-2 text-navy dark:text-slate-100 lg:hidden" onClick={() => setMobileNavOpen(true)} aria-label="Open navigation"><Menu size={19} /></button><div><p className="hidden text-[10px] font-bold uppercase tracking-[0.18em] text-orange sm:block">Administrator workspace</p><h1 className="text-lg font-extrabold text-navy dark:text-slate-100 sm:mt-0.5 sm:text-xl">{location.pathname === "/admin" ? "Dashboard" : navigation.find((item) => item.href === location.pathname)?.label || "Admin Portal"}</h1></div></div>
           <div className="flex items-center gap-2 sm:gap-4"><button type="button" className="hidden rounded-lg border border-slate-200 p-2.5 text-slate-400 transition hover:border-orange/40 hover:text-orange sm:block" aria-label="Search"><Search size={17} /></button><NotificationCenter variant="admin" /><span className="hidden h-7 w-px bg-slate-200 sm:block" /><span className="flex h-9 w-9 items-center justify-center rounded-full bg-navy text-xs font-extrabold text-white">{initials}</span></div>
         </header>
         <main className="mx-auto max-w-[1440px] px-4 py-7 sm:px-7 sm:py-9 lg:px-10 lg:py-11">
@@ -140,30 +141,60 @@ export default function AdminPanel() {
 }
 
 function PageHeading({ eyebrow, title, description, action }: { eyebrow: string; title: string; description: string; action?: ReactNode }) {
-  return <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">{eyebrow}</p><h2 className="mt-2 text-[32px] font-extrabold tracking-[-0.04em] text-navy sm:text-[40px]">{title}</h2><p className="mt-3 max-w-[580px] text-sm leading-6 text-slate-500">{description}</p></div>{action}</div>;
+  return <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">{eyebrow}</p><h2 className="mt-2 text-[32px] font-extrabold tracking-[-0.04em] text-navy dark:text-slate-100 sm:text-[40px]">{title}</h2><p className="mt-3 max-w-[580px] text-sm leading-6 text-slate-500 dark:text-slate-400">{description}</p></div>{action}</div>;
 }
 
 function PlaceholderPage({ section }: { section: keyof typeof sectionDetails }) {
   const details = sectionDetails[section];
-  return <><PageHeading {...details} action={<button type="button" className="inline-flex items-center justify-center gap-2 rounded-lg bg-orange px-4 py-3 text-xs font-extrabold text-navy shadow-[0_6px_18px_rgba(255,153,0,0.16)] transition hover:bg-orange-light"><Activity size={15} /> Coming soon</button>} /><div className="mt-8 rounded-xl border border-slate-200 bg-white p-8 text-center shadow-[0_3px_16px_rgba(20,36,52,0.04)] sm:p-14"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-orange/10 text-orange"><Settings size={24} /></div><h3 className="mt-5 text-base font-extrabold text-navy">{details.title} workspace</h3><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">This section is ready for data and workflows. Records will appear here once the admin tools are connected.</p></div></>;
+  return <><PageHeading {...details} action={<button type="button" className="inline-flex items-center justify-center gap-2 rounded-lg bg-orange px-4 py-3 text-xs font-extrabold text-navy dark:text-slate-100 shadow-[0_6px_18px_rgba(255,153,0,0.16)] transition hover:bg-orange-light"><Activity size={15} /> Coming soon</button>} /><div className="mt-8 rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 p-8 text-center shadow-[0_3px_16px_rgba(20,36,52,0.04)] sm:p-14"><div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-orange/10 text-orange"><Settings size={24} /></div><h3 className="mt-5 text-base font-extrabold text-navy dark:text-slate-100">{details.title} workspace</h3><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500 dark:text-slate-400">This section is ready for data and workflows. Records will appear here once the admin tools are connected.</p></div></>;
 }
 
 export function AdminDashboard() {
-  const [counts, setCounts] = useState<{ users: number | null; applications: number | null; deviceRequests: number | null; availableDevices: number | null }>({ users: null, applications: null, deviceRequests: null, availableDevices: null });
+  const [stats, setStats] = useState<Awaited<ReturnType<typeof getAdminDashboardStats>> | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    void getAdminDashboardStats().then((stats) => {
-      setCounts(stats);
-    }).catch(() => {});
+    let isMounted = true;
+    void getAdminDashboardStats().then((data) => {
+      if (isMounted) setStats(data);
+    }).catch((loadError) => {
+      if (isMounted) setError(loadError instanceof Error ? loadError.message : "Unable to load dashboard analytics.");
+    }).finally(() => {
+      if (isMounted) setIsLoading(false);
+    });
+    return () => { isMounted = false; };
   }, []);
 
-  const stats = [
-    { label: "Total Users", value: counts.users ?? "—", icon: Users },
-    { label: "Total Applications", value: counts.applications ?? "—", icon: BriefcaseBusiness },
-    { label: "Total Device Requests", value: counts.deviceRequests ?? "—", icon: ClipboardList },
-    { label: "Available Devices", value: counts.availableDevices ?? "—", icon: Monitor },
+  const metrics = [
+    { label: "Contributors", value: stats?.users, icon: Users },
+    { label: "Applications", value: stats?.applications, icon: BriefcaseBusiness },
+    { label: "Applications in review", value: stats?.pendingApplications, icon: Activity },
+    { label: "Device requests", value: stats?.deviceRequests, icon: ClipboardList },
+    { label: "Device requests pending", value: stats?.pendingDeviceRequests, icon: Monitor },
+    { label: "Active conversations", value: stats?.activeConversations, icon: MessageSquare },
+    { label: "Available devices", value: stats?.availableDevices, icon: Monitor },
+    { label: "Available balance", value: stats ? `$${stats.availableBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : undefined, icon: Activity },
+    { label: "Pending earnings", value: stats ? `$${stats.pendingEarnings.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : undefined, icon: Activity },
   ];
-  return <><PageHeading eyebrow="Command center" title="Dashboard" description="A clear view of contributor activity and operational priorities." /><div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{stats.map(({ label, value, icon: Icon }) => <div key={label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_3px_16px_rgba(20,36,52,0.04)]"><div className="flex items-start justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange/10 text-orange"><Icon size={19} /></span><span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Placeholder</span></div><p className="mt-6 text-3xl font-extrabold tracking-tight text-navy">{value}</p><p className="mt-1 text-xs font-semibold text-slate-500">{label}</p></div>)}</div><div className="mt-6 grid gap-6 lg:grid-cols-[1.35fr_0.65fr]"><div className="rounded-xl border border-slate-200 bg-white p-6 shadow-[0_3px_16px_rgba(20,36,52,0.04)] sm:p-7"><div className="flex items-center justify-between"><div><h3 className="text-sm font-extrabold text-navy">Recent Activity</h3><p className="mt-1 text-xs text-slate-500">The latest administrative activity will appear here.</p></div><Activity size={19} className="text-orange" /></div><div className="mt-8 rounded-lg border border-dashed border-slate-200 px-5 py-10 text-center text-xs text-slate-400">No activity to display yet.</div></div><div className="rounded-xl border border-slate-200 bg-navy p-6 text-white shadow-[0_3px_16px_rgba(20,36,52,0.04)] sm:p-7"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Quick start</p><h3 className="mt-3 text-xl font-extrabold leading-tight">Your admin workspace is ready.</h3><p className="mt-3 text-xs leading-5 text-white/60">Use the navigation to access each operational area as workflows are added.</p><div className="mt-7 flex items-center gap-2 text-xs font-bold text-white/80"><ShieldCheck size={15} className="text-orange" /> Secure admin access</div></div></div></>;
+
+  return <>
+    <PageHeading eyebrow="Command center" title="Dashboard" description="A clear view of contributor activity and operational priorities." />
+    {error && <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{error}</div>}
+    <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-label="Admin analytics">
+      {isLoading ? Array.from({ length: metrics.length }).map((_, index) => <SkeletonStatCard key={index} />) : metrics.map(({ label, value, icon: Icon }) => <div key={label} className="rounded-xl border border-slate-200 bg-white p-5 shadow-[0_3px_16px_rgba(20,36,52,0.04)] dark:border-slate-700 dark:bg-slate-900"><div className="flex items-start justify-between"><span className="flex h-10 w-10 items-center justify-center rounded-lg bg-orange/10 text-orange"><Icon size={19} /></span><span className="text-[10px] font-bold uppercase tracking-wide text-emerald-600">Database</span></div><p className="mt-6 text-3xl font-extrabold tracking-tight text-navy dark:text-slate-100">{value ?? "—"}</p><p className="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{label}</p></div>)}
+    </div>
+    <div className="mt-6 grid gap-6 lg:grid-cols-2">
+      <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-[0_3px_16px_rgba(20,36,52,0.04)] sm:p-7 dark:border-slate-700 dark:bg-slate-900">
+        <div className="flex items-center justify-between"><div><h3 className="text-sm font-extrabold text-navy dark:text-slate-100">Review queue</h3><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Items requiring administrator attention.</p></div><Activity size={19} className="text-orange" /></div>
+        <div className="mt-5 divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+          <div className="flex items-center justify-between px-4 py-3 text-sm"><span className="text-slate-600 dark:text-slate-400">Applications awaiting review</span><strong className="text-navy dark:text-slate-100">{isLoading ? "—" : stats?.pendingApplications ?? 0}</strong></div>
+          <div className="flex items-center justify-between px-4 py-3 text-sm"><span className="text-slate-600 dark:text-slate-400">Device requests awaiting review</span><strong className="text-navy dark:text-slate-100">{isLoading ? "—" : stats?.pendingDeviceRequests ?? 0}</strong></div>
+        </div>
+      </div>
+      <div className="rounded-xl bg-navy p-6 text-white shadow-[0_3px_16px_rgba(20,36,52,0.08)] sm:p-7"><div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-orange">Contributor earnings</p><h3 className="mt-2 text-lg font-extrabold">Platform totals</h3></div><BriefcaseBusiness size={20} className="text-orange" /></div><div className="mt-5 grid grid-cols-2 gap-4"><div className="rounded-lg bg-white/[0.07] p-4"><p className="text-xs text-white/55">Available balance</p><p className="mt-2 text-xl font-extrabold">{isLoading || !stats ? "—" : `$${stats.availableBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</p></div><div className="rounded-lg bg-white/[0.07] p-4"><p className="text-xs text-white/55">Pending earnings</p><p className="mt-2 text-xl font-extrabold">{isLoading || !stats ? "—" : `$${stats.pendingEarnings.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}</p></div></div></div>
+    </div>
+  </>;
 }
 
 export function AdminPlaceholder({ section }: { section: keyof typeof sectionDetails }) {

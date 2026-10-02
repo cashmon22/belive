@@ -26,20 +26,39 @@ export const getAdminDashboardStats: RequestHandler = async (req, res) => {
     return;
   }
 
-  const [applications, deviceRequests, devices] = await Promise.all([
+  const [applications, pendingApplications, deviceRequests, pendingDeviceRequests, activeConversations, devices] = await Promise.all([
     service.from("applications").select("id", { count: "exact", head: true }),
+    service.from("applications").select("id", { count: "exact", head: true }).eq("status", "Under Review"),
     service.from("payment_requests").select("id", { count: "exact", head: true }),
+    service.from("payment_requests").select("id", { count: "exact", head: true }).eq("status", "Pending Review"),
+    service.from("vendor_conversations").select("id", { count: "exact", head: true }).eq("status", "active"),
     service.from("devices").select("id", { count: "exact", head: true }).eq("status", "Available"),
   ]);
-  const failed = applications.error ?? deviceRequests.error ?? devices.error;
+  const failed = applications.error ?? pendingApplications.error ?? deviceRequests.error ?? pendingDeviceRequests.error ?? activeConversations.error ?? devices.error;
   if (failed) {
     console.error("[api] Unable to load dashboard statistics.", failed);
     res.status(500).json({ error: "Unable to load dashboard statistics." });
     return;
   }
 
-  let users = 0;
+  let availableBalance = 0;
+  let pendingEarnings = 0;
   const perPage = 1000;
+  for (let from = 0; ; from += perPage) {
+    const { data, error } = await service.from("contributor_earnings").select("user_id, available_balance, pending_earnings").order("user_id").range(from, from + perPage - 1);
+    if (error) {
+      console.error("[api] Unable to load earnings totals.", error);
+      res.status(500).json({ error: "Unable to load dashboard statistics." });
+      return;
+    }
+    for (const row of data ?? []) {
+      availableBalance += Number(row.available_balance) || 0;
+      pendingEarnings += Number(row.pending_earnings) || 0;
+    }
+    if ((data ?? []).length < perPage) break;
+  }
+
+  let users = 0;
   for (let page = 1; ; page += 1) {
     const { data, error } = await service.auth.admin.listUsers({ page, perPage });
     if (error) {
@@ -47,14 +66,19 @@ export const getAdminDashboardStats: RequestHandler = async (req, res) => {
       res.status(500).json({ error: "Unable to load dashboard statistics." });
       return;
     }
-    users += data.users.length;
+    users += data.users.filter((user) => user.app_metadata?.role !== "admin").length;
     if (data.users.length < perPage) break;
   }
 
   res.json({
     users,
     applications: applications.count ?? 0,
+    pendingApplications: pendingApplications.count ?? 0,
     deviceRequests: deviceRequests.count ?? 0,
+    pendingDeviceRequests: pendingDeviceRequests.count ?? 0,
+    activeConversations: activeConversations.count ?? 0,
     availableDevices: devices.count ?? 0,
+    availableBalance,
+    pendingEarnings,
   });
 };

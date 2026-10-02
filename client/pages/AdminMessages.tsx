@@ -27,6 +27,7 @@ import {
   sendMessage,
 } from "@/lib/vendor-messages";
 import { supabase } from "@/lib/supabase";
+import { SkeletonChat, SkeletonConversationList } from "@/components/skeletons";
 
 type TypeFilter = "all" | "support" | "vendor";
 
@@ -89,15 +90,15 @@ export default function AdminMessages() {
   const draftRef = useRef("");
   const chatLoadIdRef = useRef(0);
 
-  const loadConversations = useCallback(async () => {
-    setIsLoadingList(true);
+  const loadConversations = useCallback(async (showLoading = true) => {
+    if (showLoading) setIsLoadingList(true);
     setError("");
     try {
       setConversations(await listConversations());
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Unable to load conversations.");
     } finally {
-      setIsLoadingList(false);
+      if (showLoading) setIsLoadingList(false);
     }
   }, []);
 
@@ -108,31 +109,29 @@ export default function AdminMessages() {
     const channel = supabase
       .channel("admin-conversations")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "vendor_messages" }, (payload) => {
-        const newMessage = payload.new as { conversation_id: string; sender_role: string };
-        if (newMessage.sender_role === "user") {
-          void loadConversations();
-          if (selectedIdRef.current === newMessage.conversation_id) {
-            void loadChat(newMessage.conversation_id);
-          }
+        const newMessage = payload.new as { conversation_id: string };
+        void loadConversations(false);
+        if (selectedIdRef.current === newMessage.conversation_id) {
+          void loadChat(newMessage.conversation_id, false);
         }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "vendor_messages" }, (payload) => {
         const updatedMessage = payload.new as { conversation_id: string };
         if (selectedIdRef.current === updatedMessage.conversation_id) {
-          void loadChat(updatedMessage.conversation_id);
+          void loadChat(updatedMessage.conversation_id, false);
         }
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "vendor_conversations" }, () => {
-        void loadConversations();
+        void loadConversations(false);
       })
       .subscribe();
 
     return () => { void supabase.removeChannel(channel); };
   }, [loadConversations, selectedId]);
 
-  const loadChat = useCallback(async (id: string) => {
+  const loadChat = useCallback(async (id: string, showLoading = true) => {
     const loadId = ++chatLoadIdRef.current;
-    setIsLoadingChat(true);
+    if (showLoading) setIsLoadingChat(true);
     try {
       const data = await getConversation(id);
       if (selectedIdRef.current !== id || chatLoadIdRef.current !== loadId) return;
@@ -143,7 +142,7 @@ export default function AdminMessages() {
         return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
       });
       await markConversationRead(id);
-      if (selectedIdRef.current === id) void loadConversations();
+      if (selectedIdRef.current === id) void loadConversations(false);
     } catch (loadError) {
       if (selectedIdRef.current === id && chatLoadIdRef.current === loadId) {
         setError(loadError instanceof Error ? loadError.message : "Unable to load conversation.");
@@ -239,7 +238,7 @@ export default function AdminMessages() {
           draftRef.current = "";
         }
       }
-      void loadConversations();
+      void loadConversations(false);
     } catch (sendError) {
       if (selectedIdRef.current === conversationId) {
         setError(sendError instanceof Error ? sendError.message : "Unable to send message.");
@@ -257,10 +256,10 @@ export default function AdminMessages() {
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Communications</p>
-          <h2 id="messages-heading" className="mt-2 text-[32px] font-extrabold tracking-[-0.04em] text-navy sm:text-[40px]">Messages</h2>
-          <p className="mt-3 max-w-[580px] text-sm leading-6 text-slate-500">Communicate with contributors about their device requests and provide support. All conversations are tied to a specific user.</p>
+          <h2 id="messages-heading" className="mt-2 text-[32px] font-extrabold tracking-[-0.04em] text-navy dark:text-slate-100 sm:text-[40px]">Messages</h2>
+          <p className="mt-3 max-w-[580px] text-sm leading-6 text-slate-500 dark:text-slate-400 dark:text-slate-500">Communicate with contributors about their device requests and provide support. All conversations are tied to a specific user.</p>
         </div>
-        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500">
           {totalUnread > 0 && <span className="inline-flex items-center gap-1.5 rounded-full bg-orange/10 px-3 py-1.5 text-orange"><MessageSquare size={14} /> {totalUnread} unread</span>}
           <ShieldCheck size={16} className="text-orange" /> Admin inbox
         </div>
@@ -274,37 +273,37 @@ export default function AdminMessages() {
       )}
 
       {/* Main inbox layout */}
-      <div className="mt-7 grid gap-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_3px_16px_rgba(20,36,52,0.04)] lg:grid-cols-[360px_1fr]" style={{ height: "calc(100vh - 320px)", minHeight: "500px" }}>
+      <div className="mt-7 grid gap-0 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 shadow-[0_3px_16px_rgba(20,36,52,0.04)] lg:grid-cols-[360px_1fr]" style={{ height: "calc(100vh - 320px)", minHeight: "500px" }}>
         {/* Conversation list */}
         <div className={`flex flex-col border-r border-slate-200 ${selectedId ? "hidden lg:flex" : "flex"}`}>
           {/* Type tabs + search */}
-          <div className="border-b border-slate-100 p-4">
+          <div className="border-b border-slate-100 dark:border-slate-700 p-4">
             <div className="flex items-center gap-1.5">
               {(["all", "support", "vendor"] as TypeFilter[]).map((tab) => (
                 <button key={tab} type="button" onClick={() => { setTypeFilter(tab); setActiveFilter("All"); }}
-                  className={`rounded-md px-3 py-1.5 text-[10px] font-bold capitalize transition ${typeFilter === tab ? "bg-navy text-white" : "border border-slate-200 bg-white text-slate-500 hover:border-navy/30 hover:text-navy"}`}>
+                  className={`rounded-md px-3 py-1.5 text-[10px] font-bold capitalize transition ${typeFilter === tab ? "bg-navy text-white" : "border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:border-navy/30 hover:text-navy dark:text-slate-100"}`}>
                   {tab === "all" ? "All" : tab === "support" ? "Support" : "Vendor"}
                 </button>
               ))}
               {typeFilter === "support" && (
                 <button type="button" onClick={() => setNewSupportOpen(true)}
-                  className="ml-auto inline-flex items-center gap-1 rounded-md bg-orange px-2.5 py-1.5 text-[10px] font-extrabold text-navy transition hover:bg-orange-light">
+                  className="ml-auto inline-flex items-center gap-1 rounded-md bg-orange px-2.5 py-1.5 text-[10px] font-extrabold text-navy dark:text-slate-100 transition hover:bg-orange-light">
                   <Plus size={12} /> New
                 </button>
               )}
             </div>
 
             <form className="relative mt-3" onSubmit={handleSearch}>
-              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search conversations..."
-                className="h-10 w-full rounded-lg border border-slate-200 bg-[#fbfcfd] pl-9 pr-3 text-sm text-navy outline-none transition placeholder:text-slate-400 focus:border-orange focus:ring-2 focus:ring-orange/10" />
+                className="h-10 w-full rounded-lg border border-slate-200 bg-[#fbfcfd] dark:bg-slate-800 pl-9 pr-3 text-sm text-navy dark:text-slate-100 outline-none transition placeholder:text-slate-400 dark:text-slate-500 focus:border-orange focus:ring-2 focus:ring-orange/10" />
             </form>
 
             {showStatusFilters && (
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {statusFilters.map((filter) => (
                   <button key={filter} type="button" onClick={() => setActiveFilter(filter)}
-                    className={`rounded-md px-2.5 py-1.5 text-[10px] font-bold transition ${activeFilter === filter ? "bg-navy text-white" : "border border-slate-200 bg-white text-slate-500 hover:border-navy/30 hover:text-navy"}`}>
+                    className={`rounded-md px-2.5 py-1.5 text-[10px] font-bold transition ${activeFilter === filter ? "bg-navy text-white" : "border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 text-slate-500 dark:text-slate-400 dark:text-slate-500 hover:border-navy/30 hover:text-navy dark:text-slate-100"}`}>
                     {filter}
                   </button>
                 ))}
@@ -315,43 +314,41 @@ export default function AdminMessages() {
           {/* List */}
           <div className="min-h-0 flex-1 overflow-y-auto">
             {isLoadingList ? (
-              <div className="flex items-center justify-center gap-2 py-16 text-sm font-semibold text-slate-500" role="status">
-                <LoaderCircle size={16} className="animate-spin text-orange" /> Loading...
-              </div>
+              <div role="status" aria-label="Loading conversations"><SkeletonConversationList /></div>
             ) : filteredConversations.length === 0 ? (
               <div className="px-5 py-16 text-center">
                 <MessageSquare size={26} className="mx-auto text-slate-300" />
-                <p className="mt-3 text-sm font-bold text-navy">No conversations</p>
-                <p className="mt-1 text-xs text-slate-500">Messages from contributors will appear here.</p>
+                <p className="mt-3 text-sm font-bold text-navy dark:text-slate-100">No conversations</p>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Messages from contributors will appear here.</p>
               </div>
             ) : (
-              <ul className="divide-y divide-slate-100">
+              <ul className="divide-y divide-slate-100 dark:divide-slate-700">
                 {filteredConversations.map((conv) => (
                   <li key={conv.id}>
                     <button type="button" onClick={() => { selectedIdRef.current = conv.id; setIsLoadingChat(true); setSelectedId(conv.id); }}
-                      className={`flex w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-[#fbfcfd] ${selectedId === conv.id ? "bg-orange/5" : ""}`}>
+                      className={`flex w-full items-start gap-3 px-4 py-4 text-left transition hover:bg-[#fbfcfd] dark:bg-slate-800 ${selectedId === conv.id ? "bg-orange/5" : ""}`}>
                       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-navy text-white">
                         <ConversationIcon type={conv.conversationType} />
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <p className="truncate text-sm font-bold text-navy">
+                          <p className="truncate text-sm font-bold text-navy dark:text-slate-100">
                             {conv.conversationType === "support" ? "Support" : conv.deviceName ?? "Vendor"}
                           </p>
-                          <span className="shrink-0 text-[10px] font-semibold text-slate-400">{formatTime(conv.lastMessageAt)}</span>
+                          <span className="shrink-0 text-[10px] font-semibold text-slate-400 dark:text-slate-500">{formatTime(conv.lastMessageAt)}</span>
                         </div>
-                        <p className="truncate text-xs text-slate-500">{conv.userName}</p>
-                        <p className="mt-1 truncate text-xs text-slate-400">{conv.lastMessage ?? "No messages yet"}</p>
+                        <p className="truncate text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{conv.userName}</p>
+                        <p className="mt-1 truncate text-xs text-slate-400 dark:text-slate-500">{conv.lastMessage ?? "No messages yet"}</p>
                         <div className="mt-1.5 flex items-center gap-2">
                           {conv.conversationType === "vendor" && conv.requestStatus && <RequestStatusBadge status={conv.requestStatus} />}
                           {conv.conversationType === "vendor" && conv.referenceNumber && (
-                            <span className="text-[10px] font-semibold text-slate-400">{conv.referenceNumber}</span>
+                            <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500">{conv.referenceNumber}</span>
                           )}
                           {conv.conversationType === "support" && (
                             <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[9px] font-bold text-blue-600">Support</span>
                           )}
                           {conv.adminUnreadCount > 0 && (
-                            <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange px-1.5 text-[10px] font-extrabold text-navy">{conv.adminUnreadCount}</span>
+                            <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-orange px-1.5 text-[10px] font-extrabold text-navy dark:text-slate-100">{conv.adminUnreadCount}</span>
                           )}
                         </div>
                       </div>
@@ -368,10 +365,10 @@ export default function AdminMessages() {
           {selectedId ? (
             <>
               {/* Chat header */}
-              <div className="shrink-0 border-b border-slate-100 p-4">
+              <div className="shrink-0 border-b border-slate-100 dark:border-slate-700 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3">
-                    <button type="button" onClick={() => { selectedIdRef.current = null; setSelectedId(null); }} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-navy lg:hidden" aria-label="Back to conversations">
+                    <button type="button" onClick={() => { selectedIdRef.current = null; setSelectedId(null); }} className="rounded-lg p-1.5 text-slate-400 dark:text-slate-500 transition hover:bg-slate-100 hover:text-navy dark:text-slate-100 lg:hidden" aria-label="Back to conversations">
                       <ArrowLeft size={18} />
                     </button>
                     {activeConversation ? (
@@ -380,16 +377,16 @@ export default function AdminMessages() {
                           <ConversationIcon type={activeConversation.conversationType} />
                         </span>
                         <div>
-                          <p className="text-sm font-extrabold text-navy">
+                          <p className="text-sm font-extrabold text-navy dark:text-slate-100">
                             {activeConversation.conversationType === "support" ? "Support" : (activeConversation.deviceName ?? "Vendor")}
                           </p>
-                          <p className="text-xs text-slate-500">{activeConversation.userName} · {activeConversation.userEmail}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{activeConversation.userName} · {activeConversation.userEmail}</p>
                         </div>
                       </>
                     ) : (
                       <div>
-                        <p className="text-sm font-extrabold text-navy">Conversation</p>
-                        <p className="text-xs text-slate-500">{isLoadingChat ? "Loading conversation..." : "Conversation details unavailable"}</p>
+                        <p className="text-sm font-extrabold text-navy dark:text-slate-100">Conversation</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{isLoadingChat ? "Loading conversation..." : "Conversation details unavailable"}</p>
                       </div>
                     )}
                   </div>
@@ -397,43 +394,41 @@ export default function AdminMessages() {
                     <button type="button" onClick={() => setConfirmDelete(true)} disabled={isDeleting} className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 transition hover:bg-red-50 disabled:opacity-50">
                       <Trash2 size={14} /> Delete Conversation
                     </button>
-                    <button type="button" onClick={() => { void loadConversations(); if (selectedId) void loadChat(selectedId); }} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-100 hover:text-orange" aria-label="Refresh">
+                    <button type="button" onClick={() => { void loadConversations(); if (selectedId) void loadChat(selectedId); }} className="rounded-lg p-2 text-slate-400 dark:text-slate-500 transition hover:bg-slate-100 hover:text-orange" aria-label="Refresh">
                       <RefreshCw size={15} />
                     </button>
                   </div>
                 </div>
                 {/* Device context header (vendor only) */}
                 {activeConversation?.conversationType === "vendor" && activeConversation.deviceName && (
-                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-2.5">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-[#fbfcfd] dark:bg-slate-800 px-3 py-2.5">
                     <ShieldCheck size={14} className="text-orange" />
-                    <span className="text-xs font-bold text-navy">{activeConversation.deviceName}</span>
-                    <span className="text-xs text-slate-400">{activeConversation.deviceModel}</span>
+                    <span className="text-xs font-bold text-navy dark:text-slate-100">{activeConversation.deviceName}</span>
+                    <span className="text-xs text-slate-400 dark:text-slate-500">{activeConversation.deviceModel}</span>
                     <span className="text-slate-300">·</span>
-                    <span className="text-[10px] font-extrabold text-slate-500">{activeConversation.referenceNumber}</span>
+                    <span className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 dark:text-slate-500">{activeConversation.referenceNumber}</span>
                     {activeConversation.requestStatus && <RequestStatusBadge status={activeConversation.requestStatus} />}
                   </div>
                 )}
               </div>
 
               {/* Messages */}
-              <div className="min-h-0 flex-1 overflow-y-auto bg-[#f8f9fa] p-4">
+              <div className="min-h-0 flex-1 overflow-y-auto bg-[#f8f9fa] dark:bg-slate-950 p-4">
                 {isLoadingChat ? (
-                  <div className="flex items-center justify-center gap-2 py-16 text-sm font-semibold text-slate-500" role="status">
-                    <LoaderCircle size={16} className="animate-spin text-orange" /> Loading messages...
-                  </div>
+                  <div className="mx-auto max-w-2xl py-4" role="status" aria-label="Loading messages"><SkeletonChat /></div>
                 ) : messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <MessageSquare size={26} className="text-slate-300" />
-                    <p className="mt-3 text-sm font-bold text-navy">No messages yet</p>
-                    <p className="mt-1 text-xs text-slate-500">Send a message to start the conversation.</p>
+                    <p className="mt-3 text-sm font-bold text-navy dark:text-slate-100">No messages yet</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Send a message to start the conversation.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     {messages.map((msg) => (
                       <div key={msg.id} className={`flex ${msg.senderRole === "admin" ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${msg.senderRole === "admin" ? "bg-navy text-white" : "border border-slate-200 bg-white text-navy"}`}>
+                        <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${msg.senderRole === "admin" ? "bg-navy text-white" : "border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 text-navy dark:text-slate-100"}`}>
                           <p className="whitespace-pre-wrap break-words">{msg.body}</p>
-                          <p className={`mt-1 text-[10px] ${msg.senderRole === "admin" ? "text-white/40" : "text-slate-400"}`}>
+                          <p className={`mt-1 text-[10px] ${msg.senderRole === "admin" ? "text-white/40" : "text-slate-400 dark:text-slate-500"}`}>
                             {formatFullDate(msg.createdAt)}
                             {msg.senderRole === "admin" && (msg.readAt ? <span className="ml-1 inline-flex items-center gap-0.5"><CheckCheck size={11} /> Read</span> : <span className="ml-1 inline-flex items-center gap-0.5"><Clock size={11} /> Sent</span>)}
                           </p>
@@ -446,20 +441,20 @@ export default function AdminMessages() {
               </div>
             </>
           ) : (
-            <div className="min-h-0 flex-1 overflow-y-auto bg-[#f8f9fa] p-16 text-center">
+            <div className="min-h-0 flex-1 overflow-y-auto bg-[#f8f9fa] dark:bg-slate-950 p-16 text-center">
               <MessageSquare size={32} className="mx-auto text-slate-300" />
-              <p className="mt-4 text-sm font-bold text-navy">Select a conversation</p>
-              <p className="mt-1 text-xs text-slate-500">Choose a conversation from the list to view and reply to messages.</p>
+              <p className="mt-4 text-sm font-bold text-navy dark:text-slate-100">Select a conversation</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Choose a conversation from the list to view and reply to messages.</p>
             </div>
           )}
 
-          <div className="sticky bottom-0 z-10 shrink-0 border-t border-slate-100 bg-white p-4">
+          <div className="sticky bottom-0 z-10 shrink-0 border-t border-slate-100 dark:border-slate-700 bg-white p-4 shadow-[0_-6px_18px_rgba(20,36,52,0.04)]">
             <form className="flex items-end gap-2" onSubmit={handleSend}>
               <textarea value={draft} onChange={(e) => { draftRef.current = e.target.value; setDraft(e.target.value); }} rows={1} disabled={!selectedId} placeholder={selectedId ? "Type your reply..." : "Select a conversation to start messaging"}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleSend(e as unknown as FormEvent<HTMLFormElement>); } }}
-                className="max-h-32 min-h-[44px] flex-1 resize-none rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-3 text-sm text-navy outline-none transition placeholder:text-slate-400 focus:border-orange focus:ring-2 focus:ring-orange/10 disabled:cursor-not-allowed disabled:opacity-60" />
-              <button type="submit" disabled={!selectedId || isSending || !draft.trim()}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-orange px-4 text-xs font-extrabold text-navy transition hover:bg-orange-light disabled:cursor-not-allowed disabled:opacity-50">
+                className="max-h-32 min-h-[44px] flex-1 resize-none rounded-lg border border-slate-200 bg-[#fbfcfd] dark:bg-slate-800 px-3 py-3 text-sm text-navy dark:text-slate-100 outline-none transition placeholder:text-slate-400 dark:text-slate-500 focus:border-orange focus:ring-2 focus:ring-orange/10 disabled:cursor-not-allowed disabled:opacity-60" />
+              <button type="submit" disabled={!selectedId || isLoadingChat || isSending || !draft.trim()}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-orange px-4 text-xs font-extrabold text-navy dark:text-slate-100 transition hover:bg-orange-light disabled:cursor-not-allowed disabled:opacity-50">
                 {isSending ? <LoaderCircle size={15} className="animate-spin" /> : <Send size={15} />} Send
               </button>
             </form>
@@ -541,22 +536,22 @@ function NewSupportModal({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-navy/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="New support conversation"
       onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="flex max-h-[80vh] w-full max-w-[480px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-100 p-4">
+      <div className="flex max-h-[80vh] w-full max-w-[480px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 p-4">
           <div className="flex items-center gap-2">
             <Headphones size={18} className="text-orange" />
-            <h3 className="text-sm font-extrabold text-navy">New Support Conversation</h3>
+            <h3 className="text-sm font-extrabold text-navy dark:text-slate-100">New Support Conversation</h3>
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-navy" aria-label="Close">
+          <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-slate-400 dark:text-slate-500 transition hover:bg-slate-100 hover:text-navy dark:text-slate-100" aria-label="Close">
             <X size={18} />
           </button>
         </div>
 
-        <div className="border-b border-slate-100 p-4">
+        <div className="border-b border-slate-100 dark:border-slate-700 p-4">
           <div className="relative">
-            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search users..."
-              className="h-10 w-full rounded-lg border border-slate-200 bg-[#fbfcfd] pl-9 pr-3 text-sm text-navy outline-none transition placeholder:text-slate-400 focus:border-orange focus:ring-2 focus:ring-orange/10" />
+              className="h-10 w-full rounded-lg border border-slate-200 bg-[#fbfcfd] dark:bg-slate-800 pl-9 pr-3 text-sm text-navy dark:text-slate-100 outline-none transition placeholder:text-slate-400 dark:text-slate-500 focus:border-orange focus:ring-2 focus:ring-orange/10" />
           </div>
         </div>
 
@@ -564,25 +559,25 @@ function NewSupportModal({
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {isLoading ? (
-            <div className="flex items-center justify-center gap-2 py-10 text-sm font-semibold text-slate-500">
+            <div className="flex items-center justify-center gap-2 py-10 text-sm font-semibold text-slate-500 dark:text-slate-400 dark:text-slate-500">
               <LoaderCircle size={16} className="animate-spin text-orange" /> Loading users...
             </div>
           ) : filteredUsers.length === 0 ? (
             <div className="px-5 py-10 text-center">
               <MessageSquare size={24} className="mx-auto text-slate-300" />
-              <p className="mt-3 text-sm font-bold text-navy">No users found</p>
-              <p className="mt-1 text-xs text-slate-500">All users already have a support conversation, or no users match your search.</p>
+              <p className="mt-3 text-sm font-bold text-navy dark:text-slate-100">No users found</p>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">All users already have a support conversation, or no users match your search.</p>
             </div>
           ) : (
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-slate-100 dark:divide-slate-700">
               {filteredUsers.map((user) => (
                 <li key={user.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-navy">{user.name}</p>
-                    <p className="truncate text-xs text-slate-500">{user.email}</p>
+                    <p className="truncate text-sm font-bold text-navy dark:text-slate-100">{user.name}</p>
+                    <p className="truncate text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{user.email}</p>
                   </div>
                   <button type="button" onClick={() => handleCreate(user.id)} disabled={isCreating === user.id}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-orange px-3 py-2 text-[10px] font-extrabold text-navy transition hover:bg-orange-light disabled:opacity-50">
+                    className="inline-flex items-center gap-1.5 rounded-md bg-orange px-3 py-2 text-[10px] font-extrabold text-navy dark:text-slate-100 transition hover:bg-orange-light disabled:opacity-50">
                     {isCreating === user.id ? <LoaderCircle size={12} className="animate-spin" /> : <Plus size={12} />} Start
                   </button>
                 </li>

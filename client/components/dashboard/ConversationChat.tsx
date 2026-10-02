@@ -16,6 +16,7 @@ import {
   sendMessage,
 } from "@/lib/vendor-messages";
 import { supabase } from "@/lib/supabase";
+import { SkeletonChat } from "@/components/skeletons";
 
 function formatTime(value: string) {
   return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
@@ -46,7 +47,11 @@ export default function ConversationChat({
     setError("");
     try {
       const data = await getConversation(conversationId);
-      setMessages(data.messages);
+      setMessages((current) => {
+        const byId = new Map(current.map((message) => [message.id, message]));
+        for (const message of data.messages) byId.set(message.id, message);
+        return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      });
       await markConversationRead(conversationId);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Unable to load conversation.");
@@ -64,11 +69,19 @@ export default function ConversationChat({
     const channel = supabase
       .channel(`conv-chat-${conversationId}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "vendor_messages", filter: `conversation_id=eq.${conversationId}` }, (payload) => {
-        const newMessage = payload.new as VendorMessage;
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === newMessage.id)) return prev;
-          return [...prev, newMessage];
-        });
+        const row = payload.new as { id: string; conversation_id: string; sender_id: string; sender_role: "user" | "admin"; body: string; read_at: string | null; created_at: string };
+        const newMessage: VendorMessage = {
+          id: row.id,
+          conversationId: row.conversation_id,
+          senderId: row.sender_id,
+          senderRole: row.sender_role,
+          body: row.body,
+          readAt: row.read_at,
+          createdAt: row.created_at,
+        };
+        setMessages((prev) => prev.some((message) => message.id === newMessage.id)
+          ? prev
+          : [...prev, newMessage].sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
         // If admin sent it, mark as read since user is viewing
         if (newMessage.senderRole === "admin") {
           void markConversationRead(conversationId);
@@ -89,7 +102,9 @@ export default function ConversationChat({
     setIsSending(true);
     try {
       const msg = await sendMessage(conversationId, draft.trim());
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => prev.some((message) => message.id === msg.id)
+        ? prev
+        : [...prev, msg].sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
       setDraft("");
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Unable to send message.");
@@ -103,10 +118,10 @@ export default function ConversationChat({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3.5 sm:px-5">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 px-4 py-3.5 sm:px-5">
         <div className="flex items-center gap-3">
           {onBack && (
-            <button type="button" onClick={onBack} className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-navy lg:hidden" aria-label="Back to conversations">
+            <button type="button" onClick={onBack} className="rounded-lg p-1.5 text-slate-400 dark:text-slate-500 transition hover:bg-slate-100 hover:text-navy dark:text-slate-100 lg:hidden" aria-label="Back to conversations">
               <ArrowLeft size={18} />
             </button>
           )}
@@ -114,37 +129,35 @@ export default function ConversationChat({
             <HeaderIcon size={18} className={icon === "support" ? "text-orange" : "text-orange"} />
           </span>
           <div>
-            <p className="text-sm font-extrabold text-navy">{title}</p>
-            {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+            <p className="text-sm font-extrabold text-navy dark:text-slate-100">{title}</p>
+            {subtitle && <p className="text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{subtitle}</p>}
           </div>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="min-h-0 flex-1 overflow-y-auto bg-[#f8f9fa] p-4">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[#f8f9fa] dark:bg-slate-950 p-4">
         {isLoading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm font-semibold text-slate-500" role="status">
-            <LoaderCircle size={16} className="animate-spin text-orange" /> Loading conversation...
-          </div>
+          <div className="mx-auto max-w-2xl py-4" role="status" aria-label="Loading conversation"><SkeletonChat /></div>
         ) : error && messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <MessageSquare size={26} className="text-slate-300" />
-            <p className="mt-3 text-sm font-bold text-navy">Unable to load conversation</p>
-            <p className="mt-1 text-xs text-slate-500">{error}</p>
+            <p className="mt-3 text-sm font-bold text-navy dark:text-slate-100">Unable to load conversation</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">{error}</p>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <MessageSquare size={26} className="text-slate-300" />
-            <p className="mt-3 text-sm font-bold text-navy">No messages yet</p>
-            <p className="mt-1 text-xs text-slate-500">Send a message to start the conversation.</p>
+            <p className="mt-3 text-sm font-bold text-navy dark:text-slate-100">No messages yet</p>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400 dark:text-slate-500">Send a message to start the conversation.</p>
           </div>
         ) : (
           <div className="space-y-3">
             {messages.map((msg) => (
               <div key={msg.id} className={`flex ${msg.senderRole === "user" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${msg.senderRole === "user" ? "bg-orange text-navy" : "border border-slate-200 bg-white text-navy"}`}>
+                <div className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${msg.senderRole === "user" ? "bg-orange text-navy dark:text-slate-100" : "border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900 text-navy dark:text-slate-100"}`}>
                   <p className="whitespace-pre-wrap break-words">{msg.body}</p>
-                  <p className={`mt-1 text-[10px] ${msg.senderRole === "user" ? "text-navy/50" : "text-slate-400"}`}>
+                  <p className={`mt-1 text-[10px] ${msg.senderRole === "user" ? "text-navy dark:text-slate-100/50" : "text-slate-400 dark:text-slate-500"}`}>
                     {formatTime(msg.createdAt)}
                     {msg.senderRole === "user" && (msg.readAt ? <span className="ml-1 inline-flex items-center gap-0.5"><CheckCheck size={11} /> Read</span> : <span className="ml-1 inline-flex items-center gap-0.5"><Clock size={11} /> Sent</span>)}
                   </p>
@@ -166,9 +179,9 @@ export default function ConversationChat({
         <form className="flex items-end gap-2" onSubmit={handleSend}>
           <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} placeholder="Type your message..."
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleSend(e as unknown as FormEvent<HTMLFormElement>); } }}
-            className="max-h-32 min-h-[48px] flex-1 resize-none rounded-lg border border-slate-200 bg-[#fbfcfd] px-3 py-3 text-sm text-navy outline-none transition placeholder:text-slate-400 focus:border-orange focus:ring-2 focus:ring-orange/10" />
-          <button type="submit" disabled={isSending || !draft.trim()}
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-orange px-5 text-xs font-extrabold text-navy transition hover:bg-orange-light disabled:cursor-not-allowed disabled:opacity-50">
+            className="max-h-32 min-h-[48px] flex-1 resize-none rounded-lg border border-slate-200 bg-[#fbfcfd] dark:bg-slate-800 px-3 py-3 text-sm text-navy dark:text-slate-100 outline-none transition placeholder:text-slate-400 dark:text-slate-500 focus:border-orange focus:ring-2 focus:ring-orange/10" />
+          <button type="submit" disabled={isLoading || isSending || !draft.trim()}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-orange px-5 text-xs font-extrabold text-navy dark:text-slate-100 transition hover:bg-orange-light disabled:cursor-not-allowed disabled:opacity-50">
             {isSending ? <LoaderCircle size={15} className="animate-spin" /> : <Send size={15} />} Send
           </button>
         </form>

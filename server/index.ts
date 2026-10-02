@@ -13,6 +13,7 @@ import {
   createAdminUser,
   deleteAdminUser,
   getAdminUserDetails,
+  getAdminContributorOverview,
   listAdminUsers,
   updateAdminUserStatus,
 } from "./routes/admin-users";
@@ -76,6 +77,7 @@ export function createServer() {
   app.get("/api/admin/dashboard-stats", getAdminDashboardStats);
   app.get("/api/admin/users", listAdminUsers);
   app.post("/api/admin/users", createAdminUser);
+  app.get("/api/admin/users/:id/overview", getAdminContributorOverview);
   app.get("/api/admin/users/:id", getAdminUserDetails);
   app.patch("/api/admin/users/:id/status", updateAdminUserStatus);
   app.delete("/api/admin/users/:id", deleteAdminUser);
