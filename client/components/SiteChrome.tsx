@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
+import { usePublicSiteSettings } from "@/lib/site-settings";
 
 type NavKey = "home" | "opportunities" | "how-it-works" | "payments" | "success-stories" | "faq" | "contact" | "apply";
 
@@ -79,11 +80,12 @@ export function SiteHeader({ active }: SiteHeaderProps) {
 }
 
 export function SiteFooter() {
+  const siteSettings = usePublicSiteSettings();
   return (
     <footer id="contact" className="border-t border-white/10 bg-[#0b1723] px-5 pb-8 pt-10 text-white sm:px-8">
       <div className="mx-auto max-w-[1240px]">
         <div className="flex flex-col justify-between gap-8 border-b border-white/10 pb-9 md:flex-row md:items-start">
-          <div className="max-w-[280px]"><AmazonLogo compact /><p className="mt-5 text-xs leading-5 text-white/50">Flexible work opportunities for a world of possibilities.</p></div>
+          <div className="max-w-[280px]"><AmazonLogo compact /><p className="mt-5 text-xs leading-5 text-white/50">{siteSettings?.site.siteDescription || siteSettings?.site.siteName || ""}</p></div>
           <div className="grid grid-cols-2 gap-x-12 gap-y-4 text-sm sm:grid-cols-3 sm:gap-x-16">
             <Link className="footer-link" to="/#opportunities">Opportunities</Link>
             <Link className="footer-link" to="/how-it-works">How it works</Link>

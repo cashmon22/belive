@@ -1,6 +1,8 @@
 import "./global.css";
 
 import { useEffect } from "react";
+import { ShieldCheck, Wrench } from "lucide-react";
+import { PublicSiteSettingsProvider, usePublicSiteSettings, useSiteSettingsLoaded } from "@/lib/site-settings";
 import { Toaster } from "@/components/ui/toaster";
 import { createRoot } from "react-dom/client";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -29,6 +31,9 @@ import AdminApplications from "./pages/AdminApplications";
 import AdminDevices from "./pages/AdminDevices";
 import AdminDeviceRequests from "./pages/AdminDeviceRequests";
 import AdminMessages from "./pages/AdminMessages";
+import AdminSEO from "./pages/AdminSEO";
+import AdminEmailManagement from "./pages/AdminEmailManagement";
+import AdminSiteSettings from "./pages/AdminSiteSettings";
 import NotFound from "./pages/NotFound";
 import AdminRoute from "./components/AdminRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -37,36 +42,93 @@ import { AuthProvider } from "./lib/auth";
 const queryClient = new QueryClient();
 
 const pageTitles: Record<string, string> = {
-  "/": "Amazon Contributor Program",
-  "/how-it-works": "Amazon Contributor Program | How It Works",
-  "/payments": "Amazon Contributor Program | Payments",
-  "/success-stories": "Amazon Contributor Program | Success Stories",
-  "/faq": "Amazon Contributor Program | FAQ",
-  "/contact": "Amazon Contributor Program | Contact",
-  "/apply": "Amazon Contributor Application Portal",
-  "/login": "Amazon Contributor Login",
-  "/dashboard": "Amazon Contributor Dashboard",
-  "/trusted-vendor": "Amazon Contributor Program | Trusted Vendor",
-  "/trusted-vendor/request-payment": "Amazon Contributor Program | Request Payment",
-  "/trusted-vendor/payment-instructions": "Amazon Contributor Program | Payment Instructions",
-  "/trusted-vendor/requests": "Amazon Contributor Program | My Payment Requests",
-  "/admin/payment-requests": "Amazon Contributor Program | Payment Requests",
-  "/admin": "Amazon Contributor Admin | Dashboard",
-  "/admin/users": "Amazon Contributor Admin | Users",
-  "/admin/applications": "Amazon Contributor Admin | Applications",
-  "/admin/device-requests": "Amazon Contributor Admin | Device Requests",
-  "/admin/messages": "Amazon Contributor Admin | Messages",
-  "/admin/devices": "Amazon Contributor Admin | Devices",
+  "/": "",
+  "/how-it-works": "How It Works",
+  "/payments": "Payments",
+  "/success-stories": "Success Stories",
+  "/faq": "FAQ",
+  "/contact": "Contact",
+  "/apply": "Application Portal",
+  "/login": "Login",
+  "/dashboard": "Dashboard",
+  "/trusted-vendor": "Trusted Vendor",
+  "/trusted-vendor/request-payment": "Request Payment",
+  "/trusted-vendor/payment-instructions": "Payment Instructions",
+  "/trusted-vendor/requests": "My Payment Requests",
+  "/admin/payment-requests": "Payment Requests",
+  "/admin": "Admin Dashboard",
+  "/admin/users": "Admin Users",
+  "/admin/applications": "Admin Applications",
+  "/admin/device-requests": "Admin Device Requests",
+  "/admin/messages": "Admin Messages",
+  "/admin/devices": "Admin Devices",
+  "/admin/seo": "SEO Center",
+  "/admin/email-management": "Email Management",
+  "/admin/site-settings": "Site Settings",
 };
 
 function DocumentTitle() {
   const { pathname } = useLocation();
+  const settings = usePublicSiteSettings();
 
   useEffect(() => {
-    document.title = pageTitles[pathname] ?? "Amazon Contributor Program";
-  }, [pathname]);
+    const siteTitle = settings?.seo.siteTitle || "Amazon Contributor Program";
+    const pageTitle = pageTitles[pathname] ?? "";
+    document.title = pageTitle ? `${siteTitle} | ${pageTitle}` : siteTitle;
+    const seo = settings?.seo;
+    if (!seo) return;
+
+    const meta = (name: string, content: string, property = false) => {
+      const attribute = property ? "property" : "name";
+      let element = document.head.querySelector<HTMLMetaElement>(`meta[${attribute}="${name}"]`);
+      if (!element) {
+        element = document.createElement("meta");
+        element.setAttribute(attribute, name);
+        document.head.append(element);
+      }
+      element.content = content;
+    };
+    const isPublicPage = ["/", "/how-it-works", "/payments", "/success-stories", "/faq", "/contact", "/apply"].includes(pathname);
+    const origin = seo.canonicalUrl ? new URL(seo.canonicalUrl).origin : window.location.origin;
+    const canonical = new URL(pathname, origin).toString();
+    let canonicalElement = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (isPublicPage && !canonicalElement) {
+      canonicalElement = document.createElement("link");
+      canonicalElement.rel = "canonical";
+      document.head.append(canonicalElement);
+    }
+    if (canonicalElement && isPublicPage) canonicalElement.href = canonical;
+    if (canonicalElement && !isPublicPage) canonicalElement.remove();
+    meta("description", seo.metaDescription);
+    meta("keywords", seo.defaultKeywords);
+    meta("robots", isPublicPage && seo.allowIndexing ? "index, follow" : "noindex, nofollow");
+    meta("og:title", seo.ogTitle || siteTitle, true);
+    meta("og:description", seo.ogDescription || seo.metaDescription, true);
+    if (isPublicPage) meta("og:url", canonical, true);
+    else document.head.querySelector('meta[property="og:url"]')?.remove();
+    meta("og:type", "website", true);
+    meta("twitter:card", seo.ogImage ? "summary_large_image" : "summary");
+    meta("twitter:title", seo.twitterTitle || seo.ogTitle || siteTitle);
+    meta("twitter:description", seo.twitterDescription || seo.ogDescription || seo.metaDescription);
+    if (seo.ogImage) meta("og:image", new URL(seo.ogImage, origin).toString(), true);
+  }, [pathname, settings]);
 
   return null;
+}
+
+function MaintenanceGate({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  const settings = usePublicSiteSettings();
+  const isLoaded = useSiteSettingsLoaded();
+  const isAdminArea = pathname.startsWith("/admin") || pathname === "/login";
+
+  if (!isAdminArea && !isLoaded) {
+    return <div className="flex min-h-screen items-center justify-center bg-[#f8f9fa] text-sm font-semibold text-navy">Loading site…</div>;
+  }
+  if (!isAdminArea && settings?.site.maintenanceMode) {
+    return <main className="flex min-h-screen items-center justify-center bg-[#f8f9fa] px-5 py-16 text-ink"><section className="w-full max-w-xl rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-[0_20px_60px_rgba(20,36,52,0.08)] sm:p-12"><span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-orange/10 text-orange"><Wrench size={25} /></span><p className="mt-6 text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Temporarily unavailable</p><h1 className="mt-2 text-3xl font-extrabold tracking-tight text-navy">We’ll be back shortly</h1><p className="mt-4 text-sm leading-6 text-slate-500">{settings.site.maintenanceMessage}</p><div className="mt-8 flex items-center justify-center gap-2 text-xs font-semibold text-slate-400"><ShieldCheck size={15} /> Your account and information remain secure</div></section></main>;
+  }
+  return <>{children}</>;
 }
 
 /** Key routes by their top-level segment so /admin/* sub-routes don't re-animate the whole admin shell. */
@@ -104,6 +166,9 @@ function AnimatedRoutes() {
               <Route path="device-requests" element={<AdminDeviceRequests />} />
               <Route path="messages" element={<AdminMessages />} />
               <Route path="devices" element={<AdminDevices />} />
+              <Route path="seo" element={<AdminSEO />} />
+              <Route path="email-management" element={<AdminEmailManagement />} />
+              <Route path="site-settings" element={<AdminSiteSettings />} />
             </Route>
             </Route>
           </Route>
@@ -121,10 +186,12 @@ const App = () => (
       <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <DocumentTitle />
-        <AnimatedRoutes />
-      </BrowserRouter>
+      <PublicSiteSettingsProvider>
+        <BrowserRouter>
+          <DocumentTitle />
+          <MaintenanceGate><AnimatedRoutes /></MaintenanceGate>
+        </BrowserRouter>
+      </PublicSiteSettingsProvider>
       </TooltipProvider>
     </AuthProvider>
   </QueryClientProvider>

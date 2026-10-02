@@ -13,6 +13,8 @@ import {
   Monitor,
   Search,
   Settings,
+  SearchCheck,
+  Mail,
   ShieldCheck,
   Users,
   X,
@@ -31,6 +33,9 @@ const navigation = [
   { label: "Device Requests", href: "/admin/device-requests", icon: ClipboardList },
   { label: "Messages", href: "/admin/messages", icon: MessageSquare },
   { label: "Devices", href: "/admin/devices", icon: Monitor },
+  { label: "SEO Center", href: "/admin/seo", icon: SearchCheck },
+  { label: "Email Management", href: "/admin/email-management", icon: Mail },
+  { label: "Site Settings", href: "/admin/site-settings", icon: Settings },
 ];
 
 const sectionDetails: Record<string, { eyebrow: string; title: string; description: string }> = {
