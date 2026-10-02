@@ -5,6 +5,7 @@ import { createServiceRoleSupabaseClient, supabase } from "../lib/supabase";
 import { deleteOptionalRows, isMissingOptionalSchemaObject } from "../lib/admin-deletions";
 import { notifyUser } from "../lib/notifications";
 import type { AdminUser, AdminUserStatus } from "../../shared/admin-users";
+import { assignments } from "../../client/lib/assignments";
 
 async function getAdminUser(req: Request, res: Parameters<RequestHandler>[1]) {
   const token = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
@@ -144,6 +145,84 @@ export const getAdminUserDetails: RequestHandler = async (req, res) => {
   res.json(toAdminUser(data.user));
 };
 
+export const getAdminContributorOverview: RequestHandler = async (req, res) => {
+  const admin = await getAdminUser(req, res);
+  if (!admin) return;
+  const serviceSupabase = getServiceRoleClient(res);
+  if (!serviceSupabase) return;
+  const userId = typeof req.params.id === "string" ? req.params.id : "";
+  if (!userId) {
+    res.status(400).json({ error: "A user id is required." });
+    return;
+  }
+
+  const { data: authData, error: authError } = await serviceSupabase.auth.admin.getUserById(userId);
+  if (authError || !authData.user) {
+    res.status(404).json({ error: "User not found." });
+    return;
+  }
+
+  const [applications, deviceRequests, tasks, earnings, conversations] = await Promise.all([
+    serviceSupabase.from("applications").select("first_name, last_name, email, phone, status, verification_status, created_at").ilike("email", authData.user.email ?? "").order("created_at", { ascending: false }).limit(1),
+    serviceSupabase.from("payment_requests").select("id, device_name, device_model, status, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
+    serviceSupabase.from("contributor_tasks").select("id, assignment_id, status, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(50),
+    serviceSupabase.from("contributor_earnings").select("available_balance, pending_earnings, total_withdrawn").eq("user_id", userId).maybeSingle(),
+    serviceSupabase.from("vendor_conversations").select("id, conversation_type, status, last_message, last_message_at, admin_unread_count").eq("user_id", userId).order("last_message_at", { ascending: false, nullsFirst: false }).limit(20),
+  ]);
+  const failed = applications.error ?? deviceRequests.error ?? tasks.error ?? earnings.error ?? conversations.error;
+  if (failed) {
+    console.error("[api] Unable to load contributor overview.", failed);
+    res.status(500).json({ error: "Unable to load contributor overview." });
+    return;
+  }
+
+  const application = applications.data?.[0] ?? null;
+
+  res.json({
+    phone: typeof authData.user.user_metadata?.phone === "string" ? authData.user.user_metadata.phone : application?.phone ?? null,
+    application: application ? {
+      fullName: `${application.first_name ?? ""} ${application.last_name ?? ""}`.trim(),
+      email: application.email,
+      phone: application.phone,
+      status: application.status,
+      verificationStatus: application.verification_status,
+      submittedAt: application.created_at,
+    } : null,
+    deviceRequests: (deviceRequests.data ?? []).map((request) => ({
+      id: request.id,
+      deviceName: request.device_name,
+      deviceModel: request.device_model,
+      status: request.status,
+      createdAt: request.created_at,
+    })),
+    tasks: (tasks.data ?? []).map((task) => {
+      const assignment = assignments.find((item) => item.id === task.assignment_id);
+      return {
+        id: task.id,
+        assignmentId: task.assignment_id,
+        title: assignment?.title ?? task.assignment_id,
+        category: assignment?.category ?? "Assignment",
+        status: task.status,
+        createdAt: task.created_at,
+        reward: assignment?.reward ?? 0,
+      };
+    }),
+    earnings: earnings.data ? {
+      availableBalance: Number(earnings.data.available_balance) || 0,
+      pendingEarnings: Number(earnings.data.pending_earnings) || 0,
+      totalWithdrawn: Number(earnings.data.total_withdrawn) || 0,
+    } : null,
+    conversations: (conversations.data ?? []).map((conversation) => ({
+      id: conversation.id,
+      type: conversation.conversation_type,
+      status: conversation.status,
+      lastMessage: conversation.last_message,
+      lastMessageAt: conversation.last_message_at,
+      unreadCount: conversation.admin_unread_count ?? 0,
+    })),
+  });
+};
+
 export const deleteAdminUser: RequestHandler = async (req, res) => {
   const admin = await getAdminUser(req, res);
   if (!admin) return;
@@ -183,17 +262,7 @@ export const deleteAdminUser: RequestHandler = async (req, res) => {
     await deleteOptionalRows(() => serviceSupabase.from("contributor_earnings").delete().eq("user_id", userId));
     await deleteOptionalRows(() => serviceSupabase.from("balance_transactions").delete().eq("user_id", userId));
 
-    const { error: linkedApplicationsError } = await serviceSupabase
-      .from("applications")
-      .delete()
-      .eq("user_id", userId);
-    if (linkedApplicationsError && isMissingOptionalSchemaObject(linkedApplicationsError)) {
-      if (data.user.email) {
-        await deleteOptionalRows(() => serviceSupabase.from("applications").delete().ilike("email", data.user.email!));
-      }
-    } else if (linkedApplicationsError) {
-      throw linkedApplicationsError;
-    } else if (data.user.email) {
+    if (data.user.email) {
       await deleteOptionalRows(() => serviceSupabase.from("applications").delete().ilike("email", data.user.email!));
     }
 

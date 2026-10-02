@@ -1,5 +1,6 @@
 import type { AdminUser, AdminUsersResponse, AdminUserStatus } from "@shared/admin-users";
 import { apiRequest } from "./api-request";
+import type { AdminContributorOverview } from "@shared/admin-users";
 
 export interface CreatedAdminUser {
   id: string;
@@ -22,6 +23,10 @@ export function listAdminUsers(search: string) {
 
 export function getAdminUserDetails(id: string) {
   return apiRequest<AdminUser>(`/api/admin/users/${encodeURIComponent(id)}`);
+}
+
+export function getAdminContributorOverview(id: string) {
+  return apiRequest<AdminContributorOverview>(`/api/admin/users/${encodeURIComponent(id)}/overview`);
 }
 
 export function deleteAdminUser(id: string) {

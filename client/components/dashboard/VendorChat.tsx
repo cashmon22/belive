@@ -49,7 +49,11 @@ export default function VendorChat({
     try {
       const data = await getConversation(conversationId);
       setConversation(data);
-      setMessages(data.messages);
+      setMessages((current) => {
+        const byId = new Map(current.map((message) => [message.id, message]));
+        for (const message of data.messages) byId.set(message.id, message);
+        return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      });
       await markConversationRead(conversationId);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Unable to load conversation.");
@@ -93,11 +97,19 @@ export default function VendorChat({
     const channel = supabase
       .channel(`vendor-chat-${conversation.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "vendor_messages", filter: `conversation_id=eq.${conversation.id}` }, (payload) => {
-        const newMessage = payload.new as VendorMessage;
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === newMessage.id)) return prev;
-          return [...prev, newMessage];
-        });
+        const row = payload.new as { id: string; conversation_id: string; sender_id: string; sender_role: "user" | "admin"; body: string; read_at: string | null; created_at: string };
+        const newMessage: VendorMessage = {
+          id: row.id,
+          conversationId: row.conversation_id,
+          senderId: row.sender_id,
+          senderRole: row.sender_role,
+          body: row.body,
+          readAt: row.read_at,
+          createdAt: row.created_at,
+        };
+        setMessages((prev) => prev.some((message) => message.id === newMessage.id)
+          ? prev
+          : [...prev, newMessage].sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
         // If admin sent it, mark as read since user is viewing
         if (newMessage.senderRole === "admin") {
           void markConversationRead(conversation.id);
@@ -118,7 +130,9 @@ export default function VendorChat({
     setIsSending(true);
     try {
       const msg = await sendMessage(conversation.id, draft.trim());
-      setMessages((prev) => [...prev, msg]);
+      setMessages((prev) => prev.some((message) => message.id === msg.id)
+        ? prev
+        : [...prev, msg].sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
       setDraft("");
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Unable to send message.");

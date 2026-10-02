@@ -112,11 +112,6 @@ function textField(value: unknown, max: number) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
-function isMissingUserIdColumnError(error: { code?: string; message?: string; details?: string } | null) {
-  const message = `${error?.message ?? ""} ${error?.details ?? ""}`;
-  return !!error && (error.code === "42703" || error.code === "PGRST204") && message.includes("user_id");
-}
-
 /** Best-effort per-instance throttle (serverless instances do not share memory). */
 function isRateLimited(ip: string) {
   const now = Date.now();
@@ -124,13 +119,6 @@ function isRateLimited(ip: string) {
   hits.push(now);
   recentSubmissions.set(ip, hits);
   return hits.length > RATE_LIMIT_MAX;
-}
-
-async function optionalUserId(req: Request) {
-  const token = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
-  if (!token) return null;
-  const { data } = await supabase.auth.getUser(token);
-  return data.user?.id ?? null;
 }
 
 export const mirrorApplication: RequestHandler = async (req, res) => {
@@ -195,7 +183,6 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
   }
 
   const applicationId = crypto.randomUUID();
-  const userId = await optionalUserId(req);
   const applicationValues = {
     id: applicationId,
     submission_id: applicationId,
@@ -217,13 +204,7 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
     agrees_policies: eligibility.includes(eligibilityLabels[3]),
     understands_review: eligibility.includes(eligibilityLabels[4]),
   };
-  let { error } = await serviceSupabase
-    .from("applications")
-    .insert({ ...applicationValues, user_id: userId });
-
-  if (isMissingUserIdColumnError(error)) {
-    ({ error } = await serviceSupabase.from("applications").insert(applicationValues));
-  }
+  const { error } = await serviceSupabase.from("applications").insert(applicationValues);
 
   if (error) {
     console.error("[api] Unable to save the application.", applicationId, error);
@@ -255,11 +236,14 @@ export const getMyApplication: RequestHandler = async (req, res) => {
   const serviceSupabase = serviceClient(res);
   if (!serviceSupabase) return;
   const email = (auth.user.email ?? "").toLowerCase();
-  const filter = email ? `user_id.eq.${auth.user.id},email.ilike.${email}` : `user_id.eq.${auth.user.id}`;
+  if (!email) {
+    res.json({ application: null });
+    return;
+  }
   const { data, error } = await serviceSupabase
     .from("applications")
     .select("submission_id, status, verification_status, created_at")
-    .or(filter)
+    .ilike("email", email)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -349,7 +333,7 @@ export const updateAdminApplicationStatus: RequestHandler = async (req, res) => 
     .from("applications")
     .update({ status })
     .eq("submission_id", req.params.id)
-    .select("id, submission_id, user_id, first_name, last_name, email")
+    .select("id, submission_id, first_name, last_name, email")
     .maybeSingle();
   if (error) {
     console.error("[api] Unable to update application status.", error);
@@ -361,8 +345,8 @@ export const updateAdminApplicationStatus: RequestHandler = async (req, res) => 
     return;
   }
 
-  let userId = application.user_id as string | null;
-  if (!userId && application.email) {
+  let userId: string | null = null;
+  if (application.email) {
     let page = 1;
     while (!userId) {
       const { data, error: usersError } = await serviceSupabase.auth.admin.listUsers({ page, perPage: 100 });
