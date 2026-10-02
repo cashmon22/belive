@@ -16,6 +16,7 @@ import {
   SearchCheck,
   Mail,
   ShieldCheck,
+  Scale,
   Users,
   X,
 } from "lucide-react";
@@ -35,6 +36,7 @@ const navigation = [
   { label: "Devices", href: "/admin/devices", icon: Monitor },
   { label: "SEO Center", href: "/admin/seo", icon: SearchCheck },
   { label: "Email Management", href: "/admin/email-management", icon: Mail },
+  { label: "Legal & Compliance", href: "/admin/legal-management", icon: Scale },
   { label: "Site Settings", href: "/admin/site-settings", icon: Settings },
 ];
 

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+import { openCookiePreferences } from "@/components/CookiePrivacyControls";
 import type { Session } from "@supabase/supabase-js";
 import { BadgeCheck, Bell, CalendarDays, CheckCircle2, Mail, Save, ShieldCheck, UserRound } from "lucide-react";
 import { showInAppNotifications } from "@/lib/account-preferences";
@@ -106,6 +108,11 @@ export default function ProfileSection({ session, applicationStatus, deviceStatu
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-orange/10 text-orange"><Bell size={17} /></span><h2 id="account-preferences-title" className="text-sm font-extrabold text-navy">Account Preferences</h2></div>
           <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-lg border border-slate-200 p-4 transition hover:border-orange/40"><input type="checkbox" checked={showNotifications} onChange={(event) => { setShowNotifications(event.target.checked); setSavedMessage(""); }} className="mt-0.5 h-4 w-4 accent-orange" /><span><span className="block text-xs font-bold text-navy">Show in-app notifications</span><span className="mt-1 block text-xs leading-5 text-slate-500">Display account alerts in the notification center. Turning this off hides the center without deleting notifications.</span></span></label>
           <div className="mt-4 flex items-center gap-2 rounded-lg bg-[#fbfcfd] p-3 text-xs text-slate-500"><ShieldCheck size={15} className="shrink-0 text-orange" />Email and message delivery settings are not available for this account.</div>
+        </section>
+
+        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6 lg:col-span-2" aria-labelledby="legal-settings-title">
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4"><span className="flex h-9 w-9 items-center justify-center rounded-md bg-orange/10 text-orange"><ShieldCheck size={17} /></span><h2 id="legal-settings-title" className="text-sm font-extrabold text-navy">Legal &amp; Privacy</h2></div>
+          <div className="mt-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-center"><div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold text-navy"><Link className="hover:text-orange" to="/legal/terms">Terms of Service</Link><Link className="hover:text-orange" to="/legal/privacy">Privacy Policy</Link><Link className="hover:text-orange" to="/legal/cookies">Cookie Policy</Link><Link className="hover:text-orange" to="/legal/contributor-agreement">Contributor Agreement</Link></div><button type="button" onClick={openCookiePreferences} className="shrink-0 rounded-lg border border-slate-200 px-3 py-2.5 text-xs font-bold text-navy hover:border-orange">Manage cookie preferences</button></div>
         </section>
 
         {!isLoading && <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6 lg:col-span-2" aria-labelledby="account-status-title">

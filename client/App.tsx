@@ -33,7 +33,10 @@ import AdminDeviceRequests from "./pages/AdminDeviceRequests";
 import AdminMessages from "./pages/AdminMessages";
 import AdminSEO from "./pages/AdminSEO";
 import AdminEmailManagement from "./pages/AdminEmailManagement";
+import AdminLegalManagement from "./pages/AdminLegalManagement";
 import AdminSiteSettings from "./pages/AdminSiteSettings";
+import LegalPolicies from "./pages/LegalPolicies";
+import CookiePrivacyControls from "./components/CookiePrivacyControls";
 import NotFound from "./pages/NotFound";
 import AdminRoute from "./components/AdminRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -48,6 +51,7 @@ const pageTitles: Record<string, string> = {
   "/success-stories": "Success Stories",
   "/faq": "FAQ",
   "/contact": "Contact",
+  "/legal": "Legal & Policies",
   "/apply": "Application Portal",
   "/login": "Login",
   "/dashboard": "Dashboard",
@@ -88,7 +92,7 @@ function DocumentTitle() {
       }
       element.content = content;
     };
-    const isPublicPage = ["/", "/how-it-works", "/payments", "/success-stories", "/faq", "/contact", "/apply"].includes(pathname);
+    const isPublicPage = ["/", "/how-it-works", "/payments", "/success-stories", "/faq", "/contact", "/apply"].includes(pathname) || pathname === "/legal" || pathname.startsWith("/legal/");
     const origin = seo.canonicalUrl ? new URL(seo.canonicalUrl).origin : window.location.origin;
     const canonical = new URL(pathname, origin).toString();
     let canonicalElement = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
@@ -149,6 +153,8 @@ function AnimatedRoutes() {
           <Route path="/success-stories" element={<SuccessStories />} />
           <Route path="/faq" element={<FAQ />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/legal" element={<LegalPolicies />} />
+          <Route path="/legal/:slug" element={<LegalPolicies />} />
           <Route path="/apply" element={<Apply />} />
           <Route path="/login" element={<Login />} />
           <Route element={<ProtectedRoute />}>
@@ -168,6 +174,7 @@ function AnimatedRoutes() {
               <Route path="devices" element={<AdminDevices />} />
               <Route path="seo" element={<AdminSEO />} />
               <Route path="email-management" element={<AdminEmailManagement />} />
+              <Route path="legal-management" element={<AdminLegalManagement />} />
               <Route path="site-settings" element={<AdminSiteSettings />} />
             </Route>
             </Route>
@@ -190,6 +197,7 @@ const App = () => (
         <BrowserRouter>
           <DocumentTitle />
           <MaintenanceGate><AnimatedRoutes /></MaintenanceGate>
+          <CookiePrivacyControls />
         </BrowserRouter>
       </PublicSiteSettingsProvider>
       </TooltipProvider>

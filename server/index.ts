@@ -48,6 +48,8 @@ import {
   markNotificationRead,
 } from "./routes/notifications";
 import { listContributorTasks, startContributorTask } from "./routes/contributor-tasks";
+import { getContributorReferrals } from "./routes/referrals";
+import { acknowledgePolicy, listAdminPolicies, listMyPolicyAcknowledgements, listPublicPolicies, saveAdminPolicy } from "./routes/legal";
 import { getAdminSiteSettings, getPublicSiteSettings, updateAdminSiteSettings } from "./routes/site-settings";
 import { createServiceRoleSupabaseClient } from "./lib/supabase";
 
@@ -124,6 +126,12 @@ export function createServer() {
   app.post("/api/admin/users/:id/balance/add", addUserBalance);
   app.post("/api/admin/users/:id/balance/remove", removeUserBalance);
   app.get("/api/admin/users/:id/balance/transactions", listBalanceTransactions);
+  app.get("/api/contributor/referrals", getContributorReferrals);
+  app.get("/api/legal/policies", listPublicPolicies);
+  app.get("/api/legal/acknowledgements", listMyPolicyAcknowledgements);
+  app.post("/api/legal/acknowledgements", acknowledgePolicy);
+  app.get("/api/admin/legal/policies", listAdminPolicies);
+  app.post("/api/admin/legal/policies", saveAdminPolicy);
   app.post("/api/applications/mirror", mirrorApplication);
   app.get("/api/applications/me", getMyApplication);
   app.get("/api/admin/applications", listAdminApplications);

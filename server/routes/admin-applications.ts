@@ -182,8 +182,53 @@ export const mirrorApplication: RequestHandler = async (req, res) => {
     return;
   }
 
+  const authToken = req.headers.authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
+  let applicantId: string | null = null;
+  if (authToken) {
+    const { data: auth, error: authError } = await supabase.auth.getUser(authToken);
+    if (authError || !auth.user) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    applicantId = auth.user.id;
+  }
+
+  let referralOwnerId: string | null = null;
+  const submittedCode = textField(body.referralCode, 32).toUpperCase();
+  if (submittedCode) {
+    const { data: matchedCode, error: referralError } = await serviceSupabase.from("contributor_referral_codes").select("user_id").eq("code", submittedCode).maybeSingle();
+    if (referralError) {
+      console.error("[api] Unable to validate referral code.", referralError);
+      res.status(500).json({ error: "Unable to save the application." });
+      return;
+    }
+    if (!matchedCode) {
+      res.status(400).json({ error: "The referral code is not valid." });
+      return;
+    }
+    referralOwnerId = matchedCode.user_id;
+  }
+  const { data: previousApplications, error: previousError } = await serviceSupabase.from("applications").select("referral_owner_user_id").ilike("email", email).not("referral_owner_user_id", "is", null).order("created_at", { ascending: true }).limit(1);
+  if (previousError) {
+    console.error("[api] Unable to check referral attribution.", previousError);
+    res.status(500).json({ error: "Unable to save the application." });
+    return;
+  }
+  if (previousApplications?.[0]?.referral_owner_user_id) referralOwnerId = previousApplications[0].referral_owner_user_id;
+  if (referralOwnerId) {
+    const { data: referralOwner, error: ownerError } = await serviceSupabase.auth.admin.getUserById(referralOwnerId);
+    if (ownerError) {
+      console.error("[api] Unable to verify referral owner.", ownerError);
+      res.status(500).json({ error: "Unable to save the application." });
+      return;
+    }
+    if (applicantId === referralOwnerId || referralOwner.user?.email?.toLowerCase() === email) referralOwnerId = null;
+  }
+
   const applicationId = crypto.randomUUID();
   const applicationValues = {
+    user_id: applicantId,
+    referral_owner_user_id: referralOwnerId,
     id: applicationId,
     submission_id: applicationId,
     status: "Under Review",
@@ -356,6 +401,14 @@ export const updateAdminApplicationStatus: RequestHandler = async (req, res) => 
       if (data.users.length < 100) break;
       page++;
     }
+  }
+
+  if (userId) {
+    const referralStatus = status === "Approved" ? "Successful" : status === "Rejected" ? "Rejected" : "Pending";
+    const { error: referralError } = await serviceSupabase.from("contributor_referrals")
+      .update({ status: referralStatus })
+      .eq("referred_user_id", userId);
+    if (referralError) console.error("[api] Unable to update referral status.", referralError);
   }
 
   if (userId && (status === "Approved" || status === "Rejected")) {

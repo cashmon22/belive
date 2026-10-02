@@ -95,7 +95,7 @@ export function SiteFooter() {
             <Link className="footer-link" to="/contact">Contact</Link>
           </div>
         </div>
-        <div className="flex flex-col justify-between gap-4 pt-6 text-[11px] text-white/40 sm:flex-row sm:items-center"><div className="flex gap-5"><Link className="transition hover:text-white" to="/contact">Privacy policy</Link><Link className="transition hover:text-white" to="/contact">Terms of use</Link></div><p>© 2025 Amazon.com, Inc. or its affiliates</p></div>
+        <div className="flex flex-col justify-between gap-4 pt-6 text-[11px] text-white/40 sm:flex-row sm:items-center"><div className="flex flex-wrap gap-x-5 gap-y-2"><Link className="transition hover:text-white" to="/legal/privacy">Privacy policy</Link><Link className="transition hover:text-white" to="/legal/terms">Terms of service</Link><Link className="transition hover:text-white" to="/legal/cookies">Cookie policy</Link><Link className="transition hover:text-white" to="/legal/contributor-agreement">Contributor agreement</Link></div><p>© 2025 Amazon.com, Inc. or its affiliates</p></div>
       </div>
     </footer>
   );

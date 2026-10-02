@@ -25,6 +25,7 @@ import {
   Settings,
   ShieldCheck,
   UserRound,
+  UsersRound,
   Wallet,
   WalletCards,
   X,
@@ -37,6 +38,8 @@ import AssignmentDetailDialog from "@/components/dashboard/AssignmentDetailDialo
 import MyTasksSection from "@/components/dashboard/MyTasksSection";
 import EarningsSection from "@/components/dashboard/EarningsSection";
 import ProfileSection from "@/components/dashboard/ProfileSection";
+import ReferEarnSection from "@/components/dashboard/ReferEarnSection";
+import RequiredPolicyPrompt from "@/components/dashboard/RequiredPolicyPrompt";
 import SupportSection from "@/components/dashboard/SupportSection";
 import DeviceNotRecognizedModal from "@/components/dashboard/DeviceNotRecognizedModal";
 import ApprovedDeviceInstructions from "@/components/dashboard/ApprovedDeviceInstructions";
@@ -56,6 +59,7 @@ const sidebarItems: Array<{ label: string; icon: LucideIcon }> = [
   { label: "Assignments", icon: BriefcaseBusiness },
   { label: "My Tasks", icon: ClipboardList },
   { label: "Earnings", icon: CircleDollarSign },
+  { label: "Refer & Earn", icon: UsersRound },
   { label: "Profile", icon: UserRound },
   { label: "Messages", icon: MessageSquare },
   { label: "Support", icon: LifeBuoy },
@@ -596,17 +600,19 @@ export default function Dashboard() {
             )}
             {activeItem === "My Tasks" && <MyTasksSection />}
             {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} session={session} deviceVerified={deviceRequest?.status === "Approved"} onContactVendor={() => setTrustedVendorOpen(true)} />}
+            {activeItem === "Refer & Earn" && <ReferEarnSection />}
             {activeItem === "Profile" && <ProfileSection session={session} applicationStatus={applicationStatus} deviceStatus={deviceRequestLoading ? "Loading…" : deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status ?? "Not Recognized"} paymentConfigured={paymentGatewayConfigured} isLoading={applicationLoading || deviceRequestLoading || earningsLoading} />}
             {activeItem === "Messages" && <MessagesSection />}
             {activeItem === "Support" && <SupportSection onOpenMessages={() => setActiveItem("Messages")} />}
 
             <div className="mt-8 flex flex-col justify-between gap-3 border-t border-slate-200 pt-5 text-[10px] text-slate-400 sm:flex-row sm:items-center">
               <p>Amazon Contributor Portal · Secure access for approved contributors</p>
-              <div className="flex items-center gap-4"><Link to="/contact" className="transition hover:text-navy">Privacy</Link><Link to="/contact" className="transition hover:text-navy">Terms</Link><span className="flex items-center gap-1"><Headphones size={12} /> Support</span></div>
+              <div className="flex items-center gap-4"><Link to="/legal/privacy" className="transition hover:text-navy">Privacy</Link><Link to="/legal/terms" className="transition hover:text-navy">Terms</Link><span className="flex items-center gap-1"><Headphones size={12} /> Support</span></div>
             </div>
           </div>
         </main>
       </div>
+      <RequiredPolicyPrompt />
       {selectedAssignment && <AssignmentDetailDialog assignment={selectedAssignment} isEligible={isEligibleToStart} eligibilityLoading={applicationLoading} deviceLoading={deviceRequestLoading} isStarting={isStartingTask} startError={taskStartError} onClose={() => setSelectedAssignment(null)} onStart={() => void handleStartSelectedAssignment()} />}
       {deviceNotRecognizedOpen && <DeviceNotRecognizedModal onClose={() => setDeviceNotRecognizedOpen(false)} onVerifyDevice={() => { setDeviceNotRecognizedOpen(false); setSelectedAssignment(null); navigate("/trusted-vendor"); }} />}
       {trustedVendorOpen && <TrustedVendorModal onClose={() => setTrustedVendorOpen(false)} />}
