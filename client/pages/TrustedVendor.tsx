@@ -142,9 +142,7 @@ export function AuthenticatedVendorSidebar({
   return (
     <>
       <div className="border-b border-slate-200 px-5 py-5">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">
-          Contributor workspace
-        </p>
+        <ContributorLogo dark />
       </div>
 
       <nav
@@ -806,9 +804,7 @@ export default function TrustedVendor() {
             mobileNavOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <div className="flex h-[72px] items-center justify-between border-b border-slate-200 px-5">
-            <span className="text-xs font-extrabold text-navy">Contributor workspace</span>
-
+          <div className="flex items-center justify-end border-b border-slate-200 px-3 py-2">
             <button
               type="button"
               aria-label="Close contributor navigation"

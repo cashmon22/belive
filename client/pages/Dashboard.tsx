@@ -86,7 +86,7 @@ function SidebarContent({ activeItem, onSelect, unreadMessages = 0, unreadLoadin
   return (
     <>
       <div className="border-b border-slate-200 px-5 py-5">
-        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Contributor workspace</p>
+        <DashboardLogo dark />
       </div>
       <nav className="px-3 py-4" aria-label="Dashboard navigation">
         <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace</p>
@@ -361,8 +361,7 @@ export default function Dashboard() {
           <button type="button" aria-label="Close dashboard navigation" onClick={() => setMobileNavOpen(false)} className="fixed inset-0 z-40 bg-navy/50 lg:hidden" />
         )}
         <aside className={`fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col bg-white shadow-2xl transition-transform duration-200 lg:hidden ${mobileNavOpen ? "translate-x-0" : "-translate-x-full"}`}>
-          <div className="flex h-[72px] items-center justify-between border-b border-slate-200 px-5">
-            <span className="text-xs font-extrabold text-navy">Contributor workspace</span>
+          <div className="flex items-center justify-end border-b border-slate-200 px-3 py-2">
             <button type="button" aria-label="Close dashboard navigation" onClick={() => setMobileNavOpen(false)} className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-navy">
               <X size={20} />
             </button>
