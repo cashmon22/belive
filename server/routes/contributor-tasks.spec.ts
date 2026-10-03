@@ -11,7 +11,6 @@ vi.mock("../lib/supabase", () => ({
 const user = { id: "contributor-1", email: "contributor@example.test" };
 let inserted: unknown;
 let deviceApproved: boolean;
-let applicationStatus: string | null;
 
 function request(body: unknown, authorization = "Bearer contributor-token") {
   return { headers: { authorization }, body } as unknown as Request;
@@ -34,12 +33,10 @@ async function invoke(req: Request) {
 
 function queryFor(table: string) {
   let operation = "select";
-  const filters: Array<[string, unknown]> = [];
   const query: any = {
     select() { return query; },
     insert(value: unknown) { operation = "insert"; inserted = value; return query; },
-    eq(column: string, value: unknown) { filters.push([column, value]); return query; },
-    ilike(column: string, value: unknown) { filters.push([column, value]); return query; },
+    eq() { return query; },
     order() { return query; },
     limit() { return query; },
     maybeSingle: async () => resolve(),
@@ -49,7 +46,6 @@ function queryFor(table: string) {
     },
   };
   const resolve = () => {
-    if (table === "applications") return { data: applicationStatus ? { status: applicationStatus } : null, error: null };
     if (table === "payment_requests") return { data: deviceApproved ? { id: "approved-device" } : null, error: null };
     if (table === "contributor_tasks" && operation === "insert") return {
       data: { id: "task-1", assignment_id: "asg-001", status: "Started", created_at: "2026-01-01T00:00:00Z" },
@@ -63,7 +59,6 @@ function queryFor(table: string) {
 beforeEach(() => {
   inserted = undefined;
   deviceApproved = true;
-  applicationStatus = "Approved";
   vi.mocked(supabase.auth.getUser).mockResolvedValue({ data: { user } as never, error: null });
   vi.mocked(createServiceRoleSupabaseClient).mockReturnValue({
     from: vi.fn((table: string) => queryFor(table)),
@@ -80,15 +75,6 @@ describe("startContributorTask", () => {
 
   it("requires an approved device", async () => {
     deviceApproved = false;
-
-    const result = await invoke(request({ assignmentId: "asg-001" }));
-
-    expect(result.statusCode).toBe(403);
-    expect(inserted).toBeUndefined();
-  });
-
-  it("rejects accounts with an unapproved application", async () => {
-    applicationStatus = "Under Review";
 
     const result = await invoke(request({ assignmentId: "asg-001" }));
 

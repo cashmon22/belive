@@ -31,6 +31,7 @@ const navigation = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard, end: true },
   { label: "Users", href: "/admin/users", icon: Users },
   { label: "Applications", href: "/admin/applications", icon: BriefcaseBusiness },
+  { label: "Interview Management", href: "/admin/interviews", icon: ClipboardList },
   { label: "Device Requests", href: "/admin/device-requests", icon: ClipboardList },
   { label: "Messages", href: "/admin/messages", icon: MessageSquare },
   { label: "Devices", href: "/admin/devices", icon: Monitor },

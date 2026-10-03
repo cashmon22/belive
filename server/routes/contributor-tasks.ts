@@ -75,25 +75,6 @@ export const startContributorTask: RequestHandler = async (req, res) => {
   const serviceSupabase = serviceClient(res);
   if (!serviceSupabase) return;
 
-  if (user.email) {
-    const { data: application, error: applicationError } = await serviceSupabase
-      .from("applications")
-      .select("status")
-      .ilike("email", user.email)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (applicationError) {
-      res.status(500).json({ error: "Unable to verify account eligibility." });
-      return;
-    }
-
-    if (application && application.status !== "Approved") {
-      res.status(403).json({ error: "Your account is not currently eligible to start assignments." });
-      return;
-    }
-  }
-
   const { data: approvedDevice, error: deviceError } = await serviceSupabase
     .from("payment_requests")
     .select("id")

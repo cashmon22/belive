@@ -28,6 +28,8 @@ import AdminPaymentRequests from "./pages/AdminPaymentRequests";
 import AdminPanel, { AdminDashboard } from "./pages/AdminPanel";
 import AdminUsers from "./pages/AdminUsers";
 import AdminApplications from "./pages/AdminApplications";
+import AdminInterviews from "./pages/AdminInterviews";
+import Interview from "./pages/Interview";
 import AdminDevices from "./pages/AdminDevices";
 import AdminDeviceRequests from "./pages/AdminDeviceRequests";
 import AdminMessages from "./pages/AdminMessages";
@@ -157,6 +159,9 @@ function AnimatedRoutes() {
           <Route path="/legal/:slug" element={<LegalPolicies />} />
           <Route path="/apply" element={<Apply />} />
           <Route path="/login" element={<Login />} />
+          <Route element={<ProtectedRoute allowPending />}>
+            <Route path="/interview" element={<Interview />} />
+          </Route>
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/trusted-vendor" element={<TrustedVendor />} />
@@ -169,6 +174,7 @@ function AnimatedRoutes() {
               <Route index element={<AdminDashboard />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="applications" element={<AdminApplications />} />
+              <Route path="interviews" element={<AdminInterviews />} />
               <Route path="device-requests" element={<AdminDeviceRequests />} />
               <Route path="messages" element={<AdminMessages />} />
               <Route path="devices" element={<AdminDevices />} />
