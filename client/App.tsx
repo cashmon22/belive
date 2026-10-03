@@ -37,6 +37,7 @@ import AdminSEO from "./pages/AdminSEO";
 import AdminEmailManagement from "./pages/AdminEmailManagement";
 import AdminLegalManagement from "./pages/AdminLegalManagement";
 import AdminSiteSettings from "./pages/AdminSiteSettings";
+import AdminKyc from "./pages/AdminKyc";
 import LegalPolicies from "./pages/LegalPolicies";
 import CookiePrivacyControls from "./components/CookiePrivacyControls";
 import NotFound from "./pages/NotFound";
@@ -65,6 +66,7 @@ const pageTitles: Record<string, string> = {
   "/admin": "Admin Dashboard",
   "/admin/users": "Admin Users",
   "/admin/applications": "Admin Applications",
+  "/admin/kyc": "KYC Verification",
   "/admin/device-requests": "Admin Device Requests",
   "/admin/messages": "Admin Messages",
   "/admin/devices": "Admin Devices",
@@ -176,6 +178,7 @@ function AnimatedRoutes() {
               <Route path="applications" element={<AdminApplications />} />
               <Route path="interviews" element={<AdminInterviews />} />
               <Route path="device-requests" element={<AdminDeviceRequests />} />
+              <Route path="kyc" element={<AdminKyc />} />
               <Route path="messages" element={<AdminMessages />} />
               <Route path="devices" element={<AdminDevices />} />
               <Route path="seo" element={<AdminSEO />} />

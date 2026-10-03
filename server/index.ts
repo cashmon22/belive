@@ -66,6 +66,7 @@ import {
   updateInterviewStatus,
 } from "./routes/interviews";
 import { getContributorEarnings } from "./routes/contributor-earnings";
+import { createKycDraft, getAdminKyc, getAdminKycInstructions, getKycInstructions, getMyKyc, getMyKycStatus, listAdminKyc, reviewKyc, saveAdminKycInstructions, saveKycDraft, submitKyc, uploadKycFile } from "./routes/kyc";
 
 export function createServer() {
   const app = express();
@@ -123,6 +124,7 @@ export function createServer() {
     }
   });
   app.use("/api/contributor", requireInterviewApproval);
+  app.use("/api/kyc", requireInterviewApproval);
   app.use("/api/payment-requests", requireInterviewApproval);
   app.use("/api/vendor-conversations", requireInterviewApproval);
   app.use("/api/notifications", requireInterviewApproval);
@@ -163,6 +165,18 @@ export function createServer() {
   app.patch("/api/admin/interview-questions/:id", updateInterviewQuestion);
   app.delete("/api/admin/interview-questions/:id", deleteInterviewQuestion);
   app.get("/api/contributor/earnings", getContributorEarnings);
+  app.get("/api/kyc/instructions", getKycInstructions);
+  app.get("/api/kyc/me", getMyKyc);
+  app.get("/api/kyc/status", getMyKycStatus);
+  app.post("/api/kyc/drafts", createKycDraft);
+  app.patch("/api/kyc/drafts/:id", saveKycDraft);
+  app.post("/api/kyc/drafts/:id/files/:kind", uploadKycFile);
+  app.post("/api/kyc/submit", submitKyc);
+  app.get("/api/admin/kyc", listAdminKyc);
+  app.get("/api/admin/kyc/instructions", getAdminKycInstructions);
+  app.put("/api/admin/kyc/instructions", saveAdminKycInstructions);
+  app.get("/api/admin/kyc/:id", getAdminKyc);
+  app.patch("/api/admin/kyc/:id/review", reviewKyc);
   app.get("/api/admin/applications", listAdminApplications);
   app.get("/api/admin/applications/:id", getAdminApplicationDetails);
   app.patch("/api/admin/applications/:id/status", updateAdminApplicationStatus);

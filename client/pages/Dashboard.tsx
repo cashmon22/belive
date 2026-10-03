@@ -50,6 +50,8 @@ import type { ContributorReferralSummary } from "@shared/referrals";
 import type { AppNotification } from "@shared/notifications";
 import { useContributorEarnings } from "@/lib/earnings";
 import { useDeviceRequest } from "@/lib/use-device-request";
+import { getMyKycStatus, type KycStatus } from "@/lib/kyc";
+import KycSection from "@/components/dashboard/KycSection";
 import { useUnreadMessageCount } from "@/lib/notifications";
 import type { PaymentRequest } from "@shared/payment-requests";
 
@@ -82,7 +84,7 @@ function DashboardLogo({ dark = false }: { dark?: boolean }) {
   );
 }
 
-function SidebarContent({ activeItem, onSelect, unreadMessages = 0, unreadLoading = false }: { activeItem: string; onSelect: (label: string) => void; unreadMessages?: number; unreadLoading?: boolean }) {
+function SidebarContent({ activeItem, onSelect, unreadMessages = 0, unreadLoading = false, deviceApproved = false }: { activeItem: string; onSelect: (label: string) => void; unreadMessages?: number; unreadLoading?: boolean; deviceApproved?: boolean }) {
   return (
     <>
       <div className="border-b border-slate-200 px-5 py-5">
@@ -93,7 +95,7 @@ function SidebarContent({ activeItem, onSelect, unreadMessages = 0, unreadLoadin
       <nav className="px-3 py-4" aria-label="Dashboard navigation">
         <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace</p>
         <div className="space-y-1">
-          {sidebarItems.map(({ label, icon: Icon }) => {
+          {[...sidebarItems.slice(0, 4), ...(deviceApproved ? [{ label: "KYC Verification", icon: ShieldCheck }] : []), ...sidebarItems.slice(4)].map(({ label, icon: Icon }) => {
             const isActive = activeItem === label;
             return (
               <button
@@ -218,6 +220,7 @@ export default function Dashboard() {
   const [activityError, setActivityError] = useState(false);
   const [dashboardReferrals, setDashboardReferrals] = useState<ContributorReferralSummary | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [kycStatus, setKycStatus] = useState<KycStatus | null>(null);
   const { availableBalance, pendingEarnings, totalWithdrawn, paymentGatewayConfigured, isLoading: earningsLoading } = useContributorEarnings(session);
   const { request: deviceRequest, isLoading: deviceRequestLoading } = useDeviceRequest();
   const { count: unreadMessages, isLoading: unreadLoading } = useUnreadMessageCount("user");
@@ -234,7 +237,29 @@ export default function Dashboard() {
       : "Contributor";
   const interviewApproved = applicationStatus === "Approved";
   const deviceApproved = !deviceRequestLoading && deviceRequest?.status === "Approved";
-  const kycVerified = myApplication?.verificationStatus === "Verified";
+  const kycVerified = kycStatus === "approved";
+  useEffect(() => {
+    if (!deviceApproved) {
+      setKycStatus(null);
+      return;
+    }
+    let active = true;
+    const loadStatus = () => {
+      void getMyKycStatus().then(({ status }) => {
+        if (active) setKycStatus(status);
+      }).catch(() => {
+        if (active) setKycStatus(null);
+      });
+    };
+    loadStatus();
+    const interval = window.setInterval(loadStatus, 30_000);
+    window.addEventListener("focus", loadStatus);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", loadStatus);
+    };
+  }, [deviceApproved]);
   const deviceStatus = deviceRequestLoading
     ? "Loading…"
     : deviceRequest?.status === "Under Review"
@@ -381,7 +406,7 @@ export default function Dashboard() {
 
       <div className="flex min-h-[calc(100vh-72px)]">
         <aside className="sticky top-[72px] hidden h-[calc(100vh-72px)] w-[250px] shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
-          <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} unreadLoading={unreadLoading} />
+          <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} unreadLoading={unreadLoading} deviceApproved={deviceApproved} />
         </aside>
 
         {mobileNavOpen && (
@@ -395,7 +420,7 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} unreadLoading={unreadLoading} />
+            <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} unreadLoading={unreadLoading} deviceApproved={deviceApproved} />
           </div>
         </aside>
 
@@ -427,7 +452,7 @@ export default function Dashboard() {
                     {[
                       { title: "Interview Approved", status: applicationStatus, complete: interviewApproved },
                       ...(interviewApproved ? [{ title: "Device Approved", status: deviceStatus, complete: deviceApproved }] : []),
-                      ...(deviceApproved ? [{ title: "KYC Verification", status: kycVerified ? "Verified" : "Not Verified", complete: kycVerified }] : []),
+                      ...(deviceApproved ? [{ title: "KYC Verification", status: kycStatus === "approved" ? "Approved" : kycStatus === "pending" ? "Under Review" : kycStatus === "rejected" ? "Changes Requested" : "Not Submitted", complete: kycVerified }] : []),
                     ].map((step, index) => (
                       <div key={step.title} className="relative rounded-lg border border-slate-200 bg-[#fbfcfd] p-4">
                         <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Step {index + 1}</p>
@@ -439,15 +464,15 @@ export default function Dashboard() {
                 </section>
 
                 {deviceApproved && (
-                  <section className={`flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${kycVerified ? "border-emerald-200 bg-emerald-50" : "border-amber-200 bg-amber-50"}`} role="status">
+                  <section className={`flex flex-col gap-4 rounded-xl border p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5 ${kycVerified ? "border-emerald-200 bg-emerald-50" : kycStatus === "pending" ? "border-blue-200 bg-blue-50" : "border-amber-200 bg-amber-50"}`} role="status">
                     <div className="flex items-start gap-3">
-                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${kycVerified ? "bg-emerald-500 text-white" : "bg-amber-500 text-white"}`}>{kycVerified ? <CheckCircle2 size={19} /> : <AlertTriangle size={19} />}</span>
+                      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${kycVerified ? "bg-emerald-500 text-white" : kycStatus === "pending" ? "bg-blue-500 text-white" : "bg-amber-500 text-white"}`}>{kycVerified ? <CheckCircle2 size={19} /> : kycStatus === "pending" ? <Clock3 size={19} /> : <AlertTriangle size={19} />}</span>
                       <div>
-                        <h2 className={`text-sm font-extrabold ${kycVerified ? "text-emerald-800" : "text-amber-800"}`}>{kycVerified ? "✓ KYC Verified" : "⚠ KYC Not Verified"}</h2>
-                        {!kycVerified && <p className="mt-1 max-w-[720px] text-xs leading-5 text-slate-600">Your account is active. Complete KYC verification before adding withdrawal details.</p>}
+                        <h2 className={`text-sm font-extrabold ${kycVerified ? "text-emerald-800" : kycStatus === "pending" ? "text-blue-800" : "text-amber-800"}`}>{kycVerified ? "KYC Approved" : kycStatus === "pending" ? "KYC Under Review" : kycStatus === "rejected" ? "KYC Changes Requested" : "KYC Not Submitted"}</h2>
+                        {!kycVerified && <p className="mt-1 max-w-[720px] text-xs leading-5 text-slate-600">{kycStatus === "pending" ? "Your identity submission is being reviewed. Your dashboard remains available." : kycStatus === "rejected" ? "Review the administrator’s reason and resubmit your identity documents." : "Complete KYC before adding withdrawal details."}</p>}
                       </div>
                     </div>
-                    {!kycVerified && <button type="button" onClick={() => selectNavItem("Profile")} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-navy px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-[#1d3042]">Verify KYC <ArrowRight size={14} /></button>}
+                    {!kycVerified && kycStatus !== "pending" && <button type="button" onClick={() => selectNavItem("KYC Verification")} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-navy px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-[#1d3042]">{kycStatus === "rejected" ? "Resubmit KYC" : "Verify KYC"} <ArrowRight size={14} /></button>}
                   </section>
                 )}
 
@@ -524,7 +549,8 @@ export default function Dashboard() {
               />
             )}
             {activeItem === "My Tasks" && <MyTasksSection />}
-            {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} session={session} deviceVerified={deviceRequest?.status === "Approved"} kycVerified={kycVerified} onContactVendor={() => setTrustedVendorOpen(true)} onVerifyKyc={() => selectNavItem("Profile")} />}
+            {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} session={session} deviceVerified={deviceRequest?.status === "Approved"} kycVerified={kycVerified} onContactVendor={() => setTrustedVendorOpen(true)} onVerifyKyc={() => selectNavItem("KYC Verification")} />}
+            {activeItem === "KYC Verification" && <KycSection userId={session?.user.id ?? ""} deviceApproved={deviceApproved} />}
             {activeItem === "Refer & Earn" && <ReferEarnSection />}
             {activeItem === "Profile" && <ProfileSection session={session} applicationStatus={applicationStatus} deviceStatus={deviceRequestLoading ? "Loading…" : deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status ?? "Not Recognized"} paymentConfigured={paymentGatewayConfigured} isLoading={applicationLoading || deviceRequestLoading || earningsLoading} />}
             {activeItem === "Messages" && <MessagesSection />}

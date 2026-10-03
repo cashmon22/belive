@@ -33,6 +33,7 @@ const navigation = [
   { label: "Applications", href: "/admin/applications", icon: BriefcaseBusiness },
   { label: "Interview Management", href: "/admin/interviews", icon: ClipboardList },
   { label: "Device Requests", href: "/admin/device-requests", icon: ClipboardList },
+  { label: "KYC Verification", href: "/admin/kyc", icon: ShieldCheck },
   { label: "Messages", href: "/admin/messages", icon: MessageSquare },
   { label: "Devices", href: "/admin/devices", icon: Monitor },
   { label: "SEO Center", href: "/admin/seo", icon: SearchCheck },
