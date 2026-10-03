@@ -320,7 +320,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => selectNavItem("Earnings")}
-              className="flex items-center gap-2 rounded-md px-2 py-1 text-left transition hover:bg-white/10"
+              className="hidden items-center gap-2 rounded-md px-2 py-1 text-left transition hover:bg-white/10 sm:flex"
               aria-label={earningsLoading ? "Wallet balance loading" : `Wallet balance: $${availableBalance.toFixed(2)}`}
             >
               <Wallet size={16} className="shrink-0 text-orange" />
