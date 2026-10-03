@@ -26,15 +26,16 @@ export const getAdminDashboardStats: RequestHandler = async (req, res) => {
     return;
   }
 
-  const [applications, pendingApplications, deviceRequests, pendingDeviceRequests, activeConversations, devices] = await Promise.all([
+  const [applications, pendingApplications, deviceRequests, pendingDeviceRequests, pendingInterviews, activeConversations, devices] = await Promise.all([
     service.from("applications").select("id", { count: "exact", head: true }),
     service.from("applications").select("id", { count: "exact", head: true }).eq("status", "Under Review"),
     service.from("payment_requests").select("id", { count: "exact", head: true }),
     service.from("payment_requests").select("id", { count: "exact", head: true }).eq("status", "Pending Review"),
+    service.from("interview_submissions").select("id", { count: "exact", head: true }).eq("status", "Under Review"),
     service.from("vendor_conversations").select("id", { count: "exact", head: true }).eq("status", "active"),
     service.from("devices").select("id", { count: "exact", head: true }).eq("status", "Available"),
   ]);
-  const failed = applications.error ?? pendingApplications.error ?? deviceRequests.error ?? pendingDeviceRequests.error ?? activeConversations.error ?? devices.error;
+  const failed = applications.error ?? pendingApplications.error ?? deviceRequests.error ?? pendingDeviceRequests.error ?? pendingInterviews.error ?? activeConversations.error ?? devices.error;
   if (failed) {
     console.error("[api] Unable to load dashboard statistics.", failed);
     res.status(500).json({ error: "Unable to load dashboard statistics." });
@@ -76,6 +77,7 @@ export const getAdminDashboardStats: RequestHandler = async (req, res) => {
     pendingApplications: pendingApplications.count ?? 0,
     deviceRequests: deviceRequests.count ?? 0,
     pendingDeviceRequests: pendingDeviceRequests.count ?? 0,
+    pendingInterviews: pendingInterviews.count ?? 0,
     activeConversations: activeConversations.count ?? 0,
     availableDevices: devices.count ?? 0,
     availableBalance,

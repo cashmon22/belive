@@ -6,6 +6,7 @@ export type AdminDashboardStats = {
   pendingApplications: number;
   deviceRequests: number;
   pendingDeviceRequests: number;
+  pendingInterviews: number;
   activeConversations: number;
   availableDevices: number;
   availableBalance: number;

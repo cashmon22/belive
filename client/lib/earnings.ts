@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "./supabase";
+import { apiRequest } from "./api-request";
 
 export interface ContributorEarnings {
   availableBalance: number;
@@ -17,75 +17,36 @@ const defaultEarnings: Omit<ContributorEarnings, "isLoading"> = {
   paymentGatewayConfigured: false,
 };
 
-export function useContributorEarnings(
-  session: Session | null,
-): ContributorEarnings {
-  const [earnings, setEarnings] =
-    useState<Omit<ContributorEarnings, "isLoading">>(defaultEarnings);
+export function useContributorEarnings(session: Session | null): ContributorEarnings {
+  const [earnings, setEarnings] = useState(defaultEarnings);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!session?.user?.id) {
+    if (!session?.user.id) {
       setEarnings(defaultEarnings);
       setIsLoading(false);
       return;
     }
 
-    let isMounted = true;
-
-    const fetchEarnings = async () => {
+    let active = true;
+    const loadEarnings = async () => {
       try {
-        const { data, error } = await supabase
-          .from("contributor_earnings")
-          .select(
-            "available_balance, pending_earnings, total_withdrawn, payment_gateway_configured",
-          )
-          .eq("user_id", session.user.id)
-          .maybeSingle();
-
-        if (!isMounted) return;
-
-        if (error || !data) {
-          setEarnings(defaultEarnings);
-        } else {
-          setEarnings({
-            availableBalance: Number(data.available_balance) || 0,
-            pendingEarnings: Number(data.pending_earnings) || 0,
-            totalWithdrawn: Number(data.total_withdrawn) || 0,
-            paymentGatewayConfigured: Boolean(data.payment_gateway_configured),
-          });
-        }
+        const result = await apiRequest<Omit<ContributorEarnings, "isLoading">>("/api/contributor/earnings");
+        if (active) setEarnings(result);
       } catch {
-        if (isMounted) setEarnings(defaultEarnings);
+        if (active) setEarnings(defaultEarnings);
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     };
 
-    fetchEarnings();
-
-    // Subscribe to realtime changes so the wallet auto-updates when an admin
-    // adjusts the balance via the server-side RPC. Use a unique channel name
-    // per hook instance so multiple components can subscribe simultaneously.
-    const channel = supabase
-      .channel(`contributor_earnings:${session.user.id}:${Math.random().toString(36).slice(2)}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "contributor_earnings",
-          filter: `user_id=eq.${session.user.id}`,
-        },
-        () => fetchEarnings(),
-      )
-      .subscribe();
-
+    void loadEarnings();
+    const interval = window.setInterval(() => void loadEarnings(), 15_000);
     return () => {
-      isMounted = false;
-      supabase.removeChannel(channel);
+      active = false;
+      window.clearInterval(interval);
     };
-  }, [session?.user?.id]);
+  }, [session?.user.id]);
 
   return { ...earnings, isLoading };
 }

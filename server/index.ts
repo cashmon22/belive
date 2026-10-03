@@ -52,6 +52,21 @@ import { getContributorReferrals } from "./routes/referrals";
 import { acknowledgePolicy, listAdminPolicies, listMyPolicyAcknowledgements, listPublicPolicies, saveAdminPolicy } from "./routes/legal";
 import { getAdminSiteSettings, getPublicSiteSettings, updateAdminSiteSettings } from "./routes/site-settings";
 import { createServiceRoleSupabaseClient } from "./lib/supabase";
+import { requireInterviewApproval } from "./lib/interview-access";
+import {
+  createInterviewQuestion,
+  deleteInterviewQuestion,
+  getInterviewAccess,
+  getInterviewQuestions,
+  getMyInterview,
+  listAdminInterviews,
+  reorderInterviewQuestions,
+  submitInterview,
+  updateInterviewQuestion,
+  updateInterviewStatus,
+} from "./routes/interviews";
+import { getContributorEarnings } from "./routes/contributor-earnings";
+import { createKycDraft, getAdminKyc, getAdminKycInstructions, getKycInstructions, getMyKyc, getMyKycStatus, listAdminKyc, reviewKyc, saveAdminKycInstructions, saveKycDraft, submitKyc, uploadKycFile } from "./routes/kyc";
 
 export function createServer() {
   const app = express();
@@ -108,6 +123,11 @@ export function createServer() {
       res.status(503).type("application/xml").send('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>');
     }
   });
+  app.use("/api/contributor", requireInterviewApproval);
+  app.use("/api/kyc", requireInterviewApproval);
+  app.use("/api/payment-requests", requireInterviewApproval);
+  app.use("/api/vendor-conversations", requireInterviewApproval);
+  app.use("/api/notifications", requireInterviewApproval);
   app.post("/api/payment-requests", createPaymentRequest);
   app.get("/api/payment-requests", listPaymentRequests);
   app.patch(
@@ -134,6 +154,29 @@ export function createServer() {
   app.post("/api/admin/legal/policies", saveAdminPolicy);
   app.post("/api/applications/mirror", mirrorApplication);
   app.get("/api/applications/me", getMyApplication);
+  app.get("/api/interview/access", getInterviewAccess);
+  app.get("/api/interview/questions", getInterviewQuestions);
+  app.get("/api/interview/me", getMyInterview);
+  app.post("/api/interview/submissions", submitInterview);
+  app.get("/api/admin/interviews", listAdminInterviews);
+  app.patch("/api/admin/interviews/:id/status", updateInterviewStatus);
+  app.post("/api/admin/interview-questions", createInterviewQuestion);
+  app.put("/api/admin/interview-questions/order", reorderInterviewQuestions);
+  app.patch("/api/admin/interview-questions/:id", updateInterviewQuestion);
+  app.delete("/api/admin/interview-questions/:id", deleteInterviewQuestion);
+  app.get("/api/contributor/earnings", getContributorEarnings);
+  app.get("/api/kyc/instructions", getKycInstructions);
+  app.get("/api/kyc/me", getMyKyc);
+  app.get("/api/kyc/status", getMyKycStatus);
+  app.post("/api/kyc/drafts", createKycDraft);
+  app.patch("/api/kyc/drafts/:id", saveKycDraft);
+  app.post("/api/kyc/drafts/:id/files/:kind", uploadKycFile);
+  app.post("/api/kyc/submit", submitKyc);
+  app.get("/api/admin/kyc", listAdminKyc);
+  app.get("/api/admin/kyc/instructions", getAdminKycInstructions);
+  app.put("/api/admin/kyc/instructions", saveAdminKycInstructions);
+  app.get("/api/admin/kyc/:id", getAdminKyc);
+  app.patch("/api/admin/kyc/:id/review", reviewKyc);
   app.get("/api/admin/applications", listAdminApplications);
   app.get("/api/admin/applications/:id", getAdminApplicationDetails);
   app.patch("/api/admin/applications/:id/status", updateAdminApplicationStatus);

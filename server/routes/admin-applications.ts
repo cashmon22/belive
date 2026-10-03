@@ -280,6 +280,18 @@ export const getMyApplication: RequestHandler = async (req, res) => {
   }
   const serviceSupabase = serviceClient(res);
   if (!serviceSupabase) return;
+  const { data: interview, error: interviewError } = await serviceSupabase.from("interview_submissions")
+    .select("id, status, submitted_at")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+  if (interviewError) {
+    res.status(500).json({ error: "Unable to load your interview status." });
+    return;
+  }
+  if (interview) {
+    res.json({ application: { id: interview.id, status: interview.status, verificationStatus: "Not Verified", submittedAt: interview.submitted_at } });
+    return;
+  }
   const email = (auth.user.email ?? "").toLowerCase();
   if (!email) {
     res.json({ application: null });

@@ -6,7 +6,10 @@ export type NotificationType =
   | "application_rejected"
   | "new_device_request"
   | "new_message"
-  | "balance_adjusted";
+  | "balance_adjusted"
+  | "new_kyc_submission"
+  | "kyc_approved"
+  | "kyc_rejected";
 
 export type AppNotification = {
   id: string;
