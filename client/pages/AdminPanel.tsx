@@ -197,6 +197,7 @@ export function AdminDashboard() {
         <div className="flex items-center justify-between"><div><h3 className="text-sm font-extrabold text-navy dark:text-slate-100">Review queue</h3><p className="mt-1 text-xs text-slate-500 dark:text-slate-400">Items requiring administrator attention.</p></div><Activity size={19} className="text-orange" /></div>
         <div className="mt-5 divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-700 dark:border-slate-700">
           <div className="flex items-center justify-between px-4 py-3 text-sm"><span className="text-slate-600 dark:text-slate-400">Applications awaiting review</span><strong className="text-navy dark:text-slate-100">{isLoading ? "—" : stats?.pendingApplications ?? 0}</strong></div>
+          <Link to="/admin/interviews?status=Under%20Review" aria-label={`Review ${stats?.pendingInterviews ?? 0} pending interviews`} className="flex items-center justify-between bg-orange/[0.06] px-4 py-3 text-sm transition hover:bg-orange/10"><span className="font-bold text-navy dark:text-slate-100">Pending Interviews</span><strong className="rounded-full bg-orange px-3 py-1 text-sm font-extrabold text-navy">{isLoading ? "—" : stats?.pendingInterviews ?? 0}</strong></Link>
           <div className="flex items-center justify-between px-4 py-3 text-sm"><span className="text-slate-600 dark:text-slate-400">Device requests awaiting review</span><strong className="text-navy dark:text-slate-100">{isLoading ? "—" : stats?.pendingDeviceRequests ?? 0}</strong></div>
         </div>
       </div>
