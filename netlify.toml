@@ -13,18 +13,6 @@ status = 200
 to = "/.netlify/functions/api/:splat"
 
 [[redirects]]
-force = true
-from = "/robots.txt"
-status = 200
-to = "/.netlify/functions/api/robots.txt"
-
-[[redirects]]
-force = true
-from = "/sitemap.xml"
-status = 200
-to = "/.netlify/functions/api/sitemap.xml"
-
-[[redirects]]
 from = "/*"
 status = 200
 to = "/index.html"
