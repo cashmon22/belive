@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+
+# environment
+.env
+.env.*
+!.env.example
+
+# misc
+.DS_Store
+*.local
