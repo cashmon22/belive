@@ -289,6 +289,14 @@ export const submitKyc: RequestHandler = async (req, res) => {
     const accepted = settings.accepted_id_types as Array<{ id: string }>;
     const information = identitySchema.safeParse(submission.identity_information);
     const confirmations = submission.capture_confirmations as { idPhotoReadable?: boolean; selfieCentered?: boolean };
+    const [idFile, selfieFile] = await Promise.all([
+      service.storage.from("contributor-kyc").download(submission.id_image_path),
+      service.storage.from("contributor-kyc").download(submission.selfie_image_path),
+    ]);
+    if (idFile.error || selfieFile.error || !idFile.data || !selfieFile.data) {
+      res.status(400).json({ error: "A required image is missing. Re-upload the image and try again." });
+      return;
+    }
     const birthDate = information.success && /^\d{4}-\d{2}-\d{2}$/.test(information.data.dateOfBirth) ? new Date(`${information.data.dateOfBirth}T00:00:00.000Z`) : null;
     const validBirthDate = Boolean(birthDate && !Number.isNaN(birthDate.getTime()) && birthDate.toISOString().slice(0, 10) === information.data.dateOfBirth && birthDate.getTime() <= Date.now());
     if (!submission.consent_at || !accepted.some((entry) => entry.id === submission.id_type) || !submission.id_image_path || !submission.selfie_image_path || !confirmations.idPhotoReadable || !confirmations.selfieCentered || !information.success || !information.data.fullName || !validBirthDate || !information.data.documentNumber) {

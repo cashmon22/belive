@@ -43,7 +43,7 @@ export default function WithdrawModal({
   onContactVendor,
   onVerifyKyc,
 }: WithdrawModalProps) {
-  const [step, setStep] = useState<Step>(kycVerified ? "method" : "kyc-blocked");
+  const [step, setStep] = useState<Step>(!deviceVerified ? "device-blocked" : kycVerified ? "method" : "kyc-blocked");
 
   // Crypto form state
   const [cryptoNetwork, setCryptoNetwork] = useState("");
@@ -58,12 +58,12 @@ export default function WithdrawModal({
   const [swiftCode, setSwiftCode] = useState("");
 
   const handleContinue = () => {
-    if (!kycVerified) {
-      setStep("kyc-blocked");
-      return;
-    }
     if (!deviceVerified) {
       setStep("device-blocked");
+      return;
+    }
+    if (!kycVerified) {
+      setStep("kyc-blocked");
     }
     // If device is verified, the actual submission would happen here.
   };
@@ -135,7 +135,7 @@ export default function WithdrawModal({
           {step === "kyc-blocked" && (
             <div>
               <p className="text-sm font-extrabold text-navy">KYC Verification Required</p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Your account is active, but your identity has not yet been verified. Please complete KYC verification before adding withdrawal details or withdrawing your earnings.</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">Your account is active, but your identity has not yet been approved. Complete KYC verification before adding withdrawal details or withdrawing your earnings.</p>
               <button
                 type="button"
                 onClick={() => {
