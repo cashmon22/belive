@@ -8,7 +8,9 @@ interface EarningsSectionProps {
   contributorId: string;
   session: Session | null;
   deviceVerified?: boolean;
+  kycVerified: boolean;
   onContactVendor?: () => void;
+  onVerifyKyc: () => void;
 }
 
 function Metric({
@@ -34,7 +36,7 @@ function Metric({
   );
 }
 
-export default function EarningsSection({ contributorId, session, deviceVerified = false, onContactVendor }: EarningsSectionProps) {
+export default function EarningsSection({ contributorId, session, deviceVerified = false, kycVerified, onContactVendor, onVerifyKyc }: EarningsSectionProps) {
   const { availableBalance, pendingEarnings, totalWithdrawn } = useContributorEarnings(session);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
 
@@ -115,8 +117,10 @@ export default function EarningsSection({ contributorId, session, deviceVerified
         <WithdrawModal
           availableBalance={availableBalance}
           deviceVerified={deviceVerified}
+          kycVerified={kycVerified}
           onClose={() => setWithdrawOpen(false)}
           onContactVendor={onContactVendor ?? (() => {})}
+          onVerifyKyc={onVerifyKyc}
         />
       )}
     </div>
