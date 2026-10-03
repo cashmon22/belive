@@ -14,7 +14,6 @@ import {
   Clock3,
   Headphones,
   LayoutDashboard,
-  LockKeyhole,
   LogOut,
   Mail,
   Menu,
@@ -51,7 +50,6 @@ import type { AppNotification } from "@shared/notifications";
 import { useContributorEarnings } from "@/lib/earnings";
 import { useDeviceRequest } from "@/lib/use-device-request";
 import { getMyKycStatus, type KycStatus } from "@/lib/kyc";
-import KycSection from "@/components/dashboard/KycSection";
 import { useUnreadMessageCount } from "@/lib/notifications";
 import type { PaymentRequest } from "@shared/payment-requests";
 
@@ -84,18 +82,16 @@ function DashboardLogo({ dark = false }: { dark?: boolean }) {
   );
 }
 
-function SidebarContent({ activeItem, onSelect, unreadMessages = 0, unreadLoading = false, deviceApproved = false }: { activeItem: string; onSelect: (label: string) => void; unreadMessages?: number; unreadLoading?: boolean; deviceApproved?: boolean }) {
+function SidebarContent({ activeItem, onSelect, unreadMessages = 0, unreadLoading = false }: { activeItem: string; onSelect: (label: string) => void; unreadMessages?: number; unreadLoading?: boolean }) {
   return (
     <>
       <div className="border-b border-slate-200 px-5 py-5">
-        <DashboardLogo dark />
-        <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Contributor workspace</p>
-        <p className="mt-1 text-sm font-extrabold text-navy">Amazon Contributor Program</p>
+        <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Contributor workspace</p>
       </div>
       <nav className="px-3 py-4" aria-label="Dashboard navigation">
         <p className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.16em] text-slate-400">Workspace</p>
         <div className="space-y-1">
-          {[...sidebarItems.slice(0, 4), ...(deviceApproved ? [{ label: "KYC Verification", icon: ShieldCheck }] : []), ...sidebarItems.slice(4)].map(({ label, icon: Icon }) => {
+          {sidebarItems.map(({ label, icon: Icon }) => {
             const isActive = activeItem === label;
             return (
               <button
@@ -129,61 +125,6 @@ function SidebarContent({ activeItem, onSelect, unreadMessages = 0, unreadLoadin
   );
 }
 
-function SecurityModal({ onClose, onContactVendor }: { onClose: () => void; onContactVendor: () => void }) {
-
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-navy/65 p-4 backdrop-blur-sm" role="presentation">
-      <div className="relative w-full max-w-[560px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="device-security-title" aria-describedby="device-security-description">
-        <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-orange/10 blur-3xl" />
-        <div className="relative border-b border-slate-100 bg-[#fbfcfd] p-5 sm:p-6">
-          <button type="button" onClick={onClose} aria-label="Close device authorization notice" className="absolute right-4 top-4 rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-navy"><X size={18} /></button>
-          <div className="flex items-start gap-4 pr-8">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-navy text-orange shadow-[0_8px_20px_rgba(19,30,41,0.14)]"><ShieldCheck size={24} /></span>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-orange">Security verification</p>
-              <h2 id="device-security-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-navy sm:text-2xl">Device Not Recognized</h2>
-            </div>
-          </div>
-        </div>
-        <div className="relative p-5 sm:p-7">
-          <p id="device-security-description" className="text-sm leading-6 text-slate-600">For security and account protection purposes, your current device has not yet been authorized for contributor access.</p>
-          <div className="mt-5 flex items-start gap-3 rounded-lg border border-orange/25 bg-orange/[0.06] p-4"><LockKeyhole size={17} className="mt-0.5 shrink-0 text-orange" /><p className="text-xs leading-5 text-slate-600">To access assignments, earnings, payments, and contributor tools, contact a trusted vendor for an authorized work device.</p></div>
-          <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onClose} className="inline-flex items-center justify-center rounded-md border border-slate-200 px-5 py-3 text-sm font-bold text-slate-600 transition hover:border-navy hover:text-navy">Close</button>
-            <button type="button" onClick={onContactVendor} className="inline-flex items-center justify-center gap-2 rounded-md bg-orange px-5 py-3 text-sm font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.18)] transition hover:-translate-y-0.5 hover:bg-orange-light"><Mail size={16} /> Contact Trusted Vendor</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function DeviceNoticeModal({ onDismiss, onContactVendor }: { onDismiss: () => void; onContactVendor: () => void }) {
-  return (
-    <div className="fixed inset-0 z-[75] flex items-center justify-center bg-navy/65 p-4 backdrop-blur-sm" role="presentation">
-      <div className="relative w-full max-w-[560px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="device-notice-title" aria-describedby="device-notice-description">
-        <div className="absolute -right-20 -top-20 h-48 w-48 rounded-full bg-orange/10 blur-3xl" />
-        <div className="relative border-b border-slate-100 bg-[#fbfcfd] p-5 sm:p-6">
-          <div className="flex items-start gap-4 pr-8">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-navy text-orange shadow-[0_8px_20px_rgba(19,30,41,0.14)]"><MonitorCheck size={24} /></span>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-orange">Device authorization</p>
-              <h2 id="device-notice-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-navy sm:text-2xl">You're not using an authorized Amazon work device</h2>
-            </div>
-          </div>
-        </div>
-        <div className="relative p-5 sm:p-7">
-          <p id="device-notice-description" className="text-sm leading-6 text-slate-600">Your account has been approved, but you are not currently using an authorized work device.</p>
-          <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <button type="button" onClick={onDismiss} className="inline-flex items-center justify-center rounded-md border border-slate-200 px-5 py-3 text-sm font-bold text-slate-600 transition hover:border-navy hover:text-navy">OK</button>
-            <button type="button" onClick={onContactVendor} className="inline-flex items-center justify-center gap-2 rounded-md bg-orange px-5 py-3 text-sm font-extrabold text-navy shadow-[0_4px_14px_rgba(255,153,0,0.18)] transition hover:bg-orange-light"><Mail size={16} /> Contact Trusted Vendor</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function TrustedVendorModal({ onClose }: { onClose: () => void }) {
 
   return (
@@ -207,6 +148,7 @@ export default function Dashboard() {
   const { session, signOut } = useAuth();
   const [activeItem, setActiveItem] = useState("Dashboard");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [profileKycOpen, setProfileKycOpen] = useState(false);
   const [trustedVendorOpen, setTrustedVendorOpen] = useState(false);
   const [deviceNotRecognizedOpen, setDeviceNotRecognizedOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
@@ -312,6 +254,12 @@ export default function Dashboard() {
   const selectNavItem = (label: string) => {
     setMobileNavOpen(false);
     setActiveItem(label);
+    if (label !== "Profile") setProfileKycOpen(false);
+  };
+
+  const openKycInProfile = () => {
+    setActiveItem("Profile");
+    setProfileKycOpen(true);
   };
 
   const handleStartSelectedAssignment = async () => {
@@ -406,7 +354,7 @@ export default function Dashboard() {
 
       <div className="flex min-h-[calc(100vh-72px)]">
         <aside className="sticky top-[72px] hidden h-[calc(100vh-72px)] w-[250px] shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
-          <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} unreadLoading={unreadLoading} deviceApproved={deviceApproved} />
+          <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} unreadLoading={unreadLoading} />
         </aside>
 
         {mobileNavOpen && (
@@ -414,13 +362,13 @@ export default function Dashboard() {
         )}
         <aside className={`fixed inset-y-0 left-0 z-50 flex w-[280px] flex-col bg-white shadow-2xl transition-transform duration-200 lg:hidden ${mobileNavOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="flex h-[72px] items-center justify-between border-b border-slate-200 px-5">
-            <DashboardLogo dark />
+            <span className="text-xs font-extrabold text-navy">Contributor workspace</span>
             <button type="button" aria-label="Close dashboard navigation" onClick={() => setMobileNavOpen(false)} className="rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-navy">
               <X size={20} />
             </button>
           </div>
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-            <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} unreadLoading={unreadLoading} deviceApproved={deviceApproved} />
+            <SidebarContent activeItem={activeItem} onSelect={selectNavItem} unreadMessages={unreadMessages} unreadLoading={unreadLoading} />
           </div>
         </aside>
 
@@ -472,7 +420,7 @@ export default function Dashboard() {
                         {!kycVerified && <p className="mt-1 max-w-[720px] text-xs leading-5 text-slate-600">{kycStatus === "pending" ? "Your identity submission is being reviewed. Your dashboard remains available." : kycStatus === "rejected" ? "Review the administrator’s reason and resubmit your identity documents." : "Complete KYC before adding withdrawal details."}</p>}
                       </div>
                     </div>
-                    {!kycVerified && kycStatus !== "pending" && <button type="button" onClick={() => selectNavItem("KYC Verification")} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-navy px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-[#1d3042]">{kycStatus === "rejected" ? "Resubmit KYC" : "Verify KYC"} <ArrowRight size={14} /></button>}
+                    {!kycVerified && kycStatus !== "pending" && <button type="button" onClick={openKycInProfile} className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-navy px-4 py-2.5 text-xs font-extrabold text-white transition hover:bg-[#1d3042]">{kycStatus === "rejected" ? "Resubmit KYC" : "Verify KYC"} <ArrowRight size={14} /></button>}
                   </section>
                 )}
 
@@ -549,10 +497,9 @@ export default function Dashboard() {
               />
             )}
             {activeItem === "My Tasks" && <MyTasksSection />}
-            {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} session={session} deviceVerified={deviceRequest?.status === "Approved"} kycVerified={kycVerified} onContactVendor={() => setTrustedVendorOpen(true)} onVerifyKyc={() => selectNavItem("KYC Verification")} />}
-            {activeItem === "KYC Verification" && <KycSection userId={session?.user.id ?? ""} deviceApproved={deviceApproved} />}
+            {activeItem === "Earnings" && <EarningsSection contributorId={contributorId} session={session} deviceVerified={deviceRequest?.status === "Approved"} kycVerified={kycVerified} onContactVendor={() => setTrustedVendorOpen(true)} onVerifyKyc={openKycInProfile} />}
             {activeItem === "Refer & Earn" && <ReferEarnSection />}
-            {activeItem === "Profile" && <ProfileSection session={session} applicationStatus={applicationStatus} deviceStatus={deviceRequestLoading ? "Loading…" : deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status ?? "Not Recognized"} paymentConfigured={paymentGatewayConfigured} isLoading={applicationLoading || deviceRequestLoading || earningsLoading} />}
+            {activeItem === "Profile" && <ProfileSection session={session} applicationStatus={applicationStatus} deviceStatus={deviceRequestLoading ? "Loading…" : deviceRequest?.status === "Approved" ? "Approved" : deviceRequest?.status ?? "Not Recognized"} paymentConfigured={paymentGatewayConfigured} isLoading={applicationLoading || deviceRequestLoading || earningsLoading} userId={session?.user.id ?? ""} deviceApproved={deviceApproved} kycOpen={profileKycOpen} onOpenKyc={openKycInProfile} onCloseKyc={() => setProfileKycOpen(false)} onOpenEarnings={() => selectNavItem("Earnings")} />}
             {activeItem === "Messages" && <MessagesSection />}
             {activeItem === "Support" && <SupportSection onOpenMessages={() => setActiveItem("Messages")} />}
 
