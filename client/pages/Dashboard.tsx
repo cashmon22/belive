@@ -132,7 +132,7 @@ function TrustedVendorModal({ onClose }: { onClose: () => void }) {
       <div className="relative w-full max-w-[520px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="trusted-vendor-title" aria-describedby="trusted-vendor-description">
         <div className="relative border-b border-slate-100 bg-[#fbfcfd] p-5 sm:p-6">
           <button type="button" onClick={onClose} aria-label="Close trusted vendor information" className="absolute right-4 top-4 rounded-md p-2 text-slate-400 transition hover:bg-slate-100 hover:text-navy"><X size={18} /></button>
-          <div className="flex items-center gap-3 pr-8"><span className="flex h-11 w-11 items-center justify-center rounded-lg bg-navy text-orange"><ShieldCheck size={22} /></span><div><p className="text-[10px] font-bold uppercase tracking-[0.16em] text-orange">Trusted vendor support</p><h2 id="trusted-vendor-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-navy sm:text-2xl">Get an Authorized Work Device</h2></div></div>
+          <div className="flex items-center gap-3 pr-8"><span className="flex h-11 w-11 items-center justify-center rounded-lg bg-navy text-orange"><ShieldCheck size={22} /></span><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Trusted vendor support</p><h2 id="trusted-vendor-title" className="mt-1 text-xl font-extrabold tracking-[-0.03em] text-navy sm:text-2xl">Get an Authorized Work Device</h2></div></div>
         </div>
         <div className="p-5 sm:p-7">
           <p id="trusted-vendor-description" className="text-sm leading-6 text-slate-600">Contact a trusted vendor to obtain an authorized work device before participating in assignments.</p>
@@ -379,7 +379,7 @@ export default function Dashboard() {
                 <section className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Amazon Contributor Dashboard</p>
-                    <h1 className="mt-2 text-[28px] font-extrabold tracking-[-0.04em] text-navy sm:text-[36px]">Welcome back, {contributorName}</h1>
+                    <h1 className="mt-2 text-[26px] font-extrabold tracking-[-0.04em] text-navy sm:text-[32px]">Welcome back, {contributorName}</h1>
                     <p className="mt-2 text-sm text-slate-500">Your contributor workspace at a glance.</p>
                   </div>
                   <div className="flex items-center gap-2 self-start rounded-full border px-3 py-2 text-xs font-bold sm:self-auto">
@@ -391,7 +391,7 @@ export default function Dashboard() {
                 <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-card sm:p-6" aria-labelledby="progress-title">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-orange">Account progress</p>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-orange">Account progress</p>
                       <h2 id="progress-title" className="mt-1 text-sm font-extrabold text-navy">Your status</h2>
                     </div>
                     <ShieldCheck size={19} className="text-slate-300" />
