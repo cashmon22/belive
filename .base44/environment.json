@@ -17,6 +17,11 @@
       "name": "SUPABASE_SERVICE_ROLE_KEY",
       "description": "Supabase service role key for server-side admin operations",
       "requiredAtBoot": true
+    },
+    {
+      "name": "PING_MESSAGE",
+      "description": "Optional custom message returned by the /api/ping endpoint",
+      "requiredAtBoot": false
     }
   ]
 }
