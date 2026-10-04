@@ -1,10 +1,12 @@
 User-agent: *
 Allow: /
+
 Disallow: /login
 Disallow: /dashboard
 Disallow: /trusted-vendor
 Disallow: /interview
 Disallow: /admin
 Disallow: /api
+
 
 Sitemap: https://workforcecontributors.netlify.app/sitemap.xml

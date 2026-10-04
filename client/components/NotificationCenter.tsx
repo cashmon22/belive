@@ -119,13 +119,17 @@ export default function NotificationCenter({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
-            className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl"
+            className={`z-50 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl sm:absolute sm:right-0 sm:top-full sm:w-80 sm:max-w-[calc(100vw-2rem)] ${
+              isDark
+                ? "fixed inset-x-2 top-[4.5rem] w-auto max-w-none sm:left-auto"
+                : "absolute right-0 top-full w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)]"
+            }`}
             role="menu"
             aria-label="Notifications"
           >
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-              <div className="flex items-center gap-2">
+            <div className="flex items-start justify-between gap-2 border-b border-slate-100 px-3 py-3 sm:items-center sm:gap-0 sm:px-4">
+              <div className="flex min-w-0 items-center gap-2">
                 <Bell size={15} className="text-orange" />
                 <h3 className="text-sm font-extrabold text-navy">Notifications</h3>
                 {unreadCount > 0 && (
@@ -134,7 +138,7 @@ export default function NotificationCenter({
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                 {unreadCount > 0 && (
                   <button
                     type="button"
@@ -156,7 +160,7 @@ export default function NotificationCenter({
             </div>
 
             {/* List */}
-            <div className="max-h-96 overflow-y-auto">
+            <div className="max-h-[min(24rem,calc(100dvh-7rem))] overflow-x-hidden overflow-y-auto sm:max-h-96">
               {isLoading ? (
                 <div role="status" aria-live="polite">
                   <div className="divide-y divide-slate-100">
@@ -188,7 +192,7 @@ export default function NotificationCenter({
                       <button
                         type="button"
                         onClick={() => void handleNotificationClick(n)}
-                        className={`flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-[#fbfcfd] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange ${
+                        className={`flex w-full items-start gap-2.5 px-3 py-3 text-left transition hover:bg-[#fbfcfd] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-orange sm:gap-3 sm:px-4 ${
                           !n.isRead ? "bg-orange/[0.03]" : ""
                         }`}
                       >
@@ -199,7 +203,7 @@ export default function NotificationCenter({
                         />
                         <div className="min-w-0 flex-1">
                           <p
-                            className={`text-xs ${
+                            className={`break-words text-xs leading-5 sm:break-normal sm:leading-normal ${
                               n.isRead
                                 ? "font-semibold text-slate-600"
                                 : "font-extrabold text-navy"
@@ -207,7 +211,7 @@ export default function NotificationCenter({
                           >
                             {n.title}
                           </p>
-                          <p className="mt-0.5 text-xs leading-5 text-slate-500">
+                          <p className="mt-0.5 break-words text-xs leading-5 text-slate-500 sm:break-normal sm:leading-normal">
                             {n.message}
                           </p>
                           <p className="mt-1 text-[10px] text-slate-400">

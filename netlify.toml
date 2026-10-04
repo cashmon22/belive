@@ -6,6 +6,12 @@ publish = "dist/spa"
 
 [functions]
 node_bundler = "esbuild"
+
+[[headers]]
+for = "/sitemap.xml"
+  [headers.values]
+  Content-Type = "application/xml; charset=utf-8"
+
 [[redirects]]
 force = true
 from = "/api/*"
