@@ -6,23 +6,17 @@ publish = "dist/spa"
 
 [functions]
 node_bundler = "esbuild"
+
+[[headers]]
+for = "/sitemap.xml"
+  [headers.values]
+  Content-Type = "application/xml; charset=utf-8"
+
 [[redirects]]
 force = true
 from = "/api/*"
 status = 200
 to = "/.netlify/functions/api/:splat"
-
-[[redirects]]
-force = true
-from = "/robots.txt"
-status = 200
-to = "/.netlify/functions/api/robots.txt"
-
-[[redirects]]
-force = true
-from = "/sitemap.xml"
-status = 200
-to = "/.netlify/functions/api/sitemap.xml"
 
 [[redirects]]
 from = "/*"
